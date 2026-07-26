@@ -6,6 +6,7 @@ skips itself when node/browsers are absent.
 """
 
 import os
+from pathlib import Path
 
 import pytest
 from conftest import TOY_APP, local_browsers_available
@@ -240,3 +241,77 @@ class TestDockerReal:
         assert report.isolation == "docker"
         assert report.runs == 2
         assert report.all_green, report.to_dict()
+
+
+@needs_docker
+class TestDockerHardening:
+    """The hardening claims, exercised against a real daemon (plan: healer is
+    the differentiator, so the docker guarantees get real CI coverage)."""
+
+    @staticmethod
+    def _tree_snapshot(root: Path) -> dict:
+        """Relative path -> (size, mtime_ns) for every regular file under root."""
+        snap = {}
+        for path in sorted(root.rglob("*")):
+            if path.is_symlink() or not path.is_file():
+                continue
+            st = path.stat()
+            snap[str(path.relative_to(root))] = (st.st_size, st.st_mtime_ns)
+        return snap
+
+    def test_network_egress_blocked_inside_container(self, tmp_path):
+        if not DOCKER_OK:
+            pytest.skip("no reachable Docker daemon")
+        # A spec that PASSES only when an external fetch fails: with
+        # --network=none the sandbox must refuse egress, so a green run here
+        # proves the block (and an open network makes the spec — and this
+        # test — fail).
+        project = copy_project(TOY_APP, tmp_path / "egress-app")
+        (project / "tests" / "egress.spec.ts").write_text(
+            "import { test, expect } from '@playwright/test';\n"
+            "\n"
+            "test('external network egress is blocked', async () => {\n"
+            "  let failed = false;\n"
+            "  try {\n"
+            "    await fetch('https://example.com/', "
+            "{ signal: AbortSignal.timeout(5000) });\n"
+            "  } catch {\n"
+            "    failed = true;\n"
+            "  }\n"
+            "  expect(failed).toBe(true);\n"
+            "});\n"
+        )
+        report = DockerSandbox().run_test(project, "tests/egress.spec.ts", repeats=1)
+        assert report.isolation == "docker"
+        assert report.all_green, report.to_dict()
+
+    def test_original_tree_untouched_after_sandboxed_run(self):
+        if not DOCKER_OK:
+            pytest.skip("no reachable Docker daemon")
+        before = self._tree_snapshot(TOY_APP)
+        report = DockerSandbox().run_test(TOY_APP, "tests/stable.spec.ts", repeats=1)
+        assert report.all_green, report.to_dict()
+        assert self._tree_snapshot(TOY_APP) == before, (
+            "a sandboxed run must not create, remove, or modify anything in "
+            "the original project tree"
+        )
+
+    def test_infra_exit_codes_surface_as_sandbox_error(self, tmp_path, monkeypatch):
+        if not DOCKER_OK:
+            pytest.skip("no reachable Docker daemon")
+        # A container whose command cannot be found exits 127; like 125/126 it
+        # means the test never ran, so it must abort as an infrastructure
+        # SandboxError instead of being recorded as a reproduced failure.
+        project = tmp_path / "tiny-proj"
+        project.mkdir()
+        (project / "README.md").write_text("sandbox infra-failure fixture\n")
+        sandbox = DockerSandbox()
+        real_build = sandbox.build_command
+
+        def command_with_missing_binary(work_dir, test_id, name):
+            cmd = real_build(work_dir, test_id, name)
+            return cmd[: cmd.index("npx")] + ["binary-that-does-not-exist"]
+
+        monkeypatch.setattr(sandbox, "build_command", command_with_missing_binary)
+        with pytest.raises(SandboxError, match="infrastructure failure"):
+            sandbox.run_test(project, "tests/anything.spec.ts", repeats=1)
