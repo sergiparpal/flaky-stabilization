@@ -428,6 +428,23 @@ def test_lone_string_evidence_path_is_one_path_not_chars(tmp_path):
     assert out["outcome"] == "ticket_created"
 
 
+def test_local_log_named_http_is_still_gated_evidence(tmp_path):
+    """Regression: the bug branch classified any path merely *starting* with
+    "http" as remote (naive startswith, not logfetch.is_remote), so a LOCAL
+    log such as http_logs/run.log was silently dropped from the PII-gated
+    evidence paths."""
+    calls = []
+    p, _ = _pipeline(calls, category="broken_test")
+    subdir = tmp_path / "http_logs"
+    subdir.mkdir()
+    log = subdir / "run.log"
+    log.write_text("E AssertionError: boom\n", encoding="utf-8")
+    out = p.run({"log_url_or_path": str(log)})
+    gate_call = next(c for c in calls if c[0] == "gate")
+    assert str(log) in gate_call[1]
+    assert out["outcome"] == "ticket_created"
+
+
 def test_non_list_evidence_paths_is_a_clean_stage_error(tmp_path):
     """Regression: a non-iterable evidence_paths raised TypeError out of run(),
     losing every stage result and the ledger row."""

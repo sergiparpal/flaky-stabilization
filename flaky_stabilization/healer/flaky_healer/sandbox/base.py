@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 import subprocess
 import tempfile
@@ -104,15 +103,6 @@ def aggregate(results: list[RunResult], isolation: str) -> RunReport:
 
 def _copy_ignore(_dir: str, names: list[str]) -> set[str]:
     return {n for n in names if n in COPY_EXCLUDES}
-
-
-def _hardlink_or_copy(src: str, dst: str) -> None:
-    """copytree copy_function that hardlinks regular files, falling back to a
-    real copy across devices (EXDEV) or for anything os.link can't link."""
-    try:
-        os.link(src, dst)
-    except OSError:
-        shutil.copy2(src, dst)
 
 
 def copy_project(src: Path | str, dst: Path | str) -> Path:

@@ -104,13 +104,14 @@ def _changed_text(target: Path, file_ops: list[PatchOp]) -> tuple[str, str]:
 def _write_text_breaking_links(target: Path, text: str) -> None:
     """Write ``text`` to ``target`` via a sibling temp file + ``os.replace``.
 
-    The sandbox copy may HARDLINK the user's original files (see
-    ``FLAKY_HEALER_HARDLINK_COPY`` / ``sandbox.base.copy_project``): an
-    in-place ``open(..., "w")`` would O_TRUNC the shared inode and silently
-    rewrite the user's real repo — violating the D6 sandbox-only-modification
-    guarantee. ``os.replace`` atomically points the sandbox path at a NEW
-    inode, so the original file (and any concurrent run sharing the inode)
-    is never touched. The original file mode is preserved.
+    Defense in depth for the D6 sandbox-only-modification guarantee: even if a
+    sandbox path ever shares an inode with the user's original file (a caller
+    that hardlinked, a bind mount), an in-place ``open(..., "w")`` would
+    O_TRUNC the shared inode and silently rewrite the user's real repo.
+    ``os.replace`` atomically points the sandbox path at a NEW inode, so the
+    original file (and any concurrent run sharing the inode) is never touched.
+    (``sandbox.base.copy_project`` itself always byte-copies — it never
+    hardlinks.) The original file mode is preserved.
     """
     fd, tmp_name = tempfile.mkstemp(
         dir=str(target.parent), prefix=f".{target.name}.", suffix=".flaky-healer.tmp"

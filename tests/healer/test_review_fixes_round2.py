@@ -38,9 +38,10 @@ from flaky_healer.trace import TraceSummary
 
 
 class TestApplyOpsBreaksHardlinks:
-    """With FLAKY_HEALER_HARDLINK_COPY=1 the sandbox copy hardlinks the user's
-    original files; an in-place write would O_TRUNC the SHARED inode and
-    silently rewrite the user's real repo (D6 violation)."""
+    """apply_ops must land every write on a NEW inode: if a sandbox path ever
+    shares an inode with the user's original file, an in-place write would
+    O_TRUNC the SHARED inode and silently rewrite the user's real repo (D6
+    violation). copy_project itself always byte-copies (never hardlinks)."""
 
     ORIGINAL = "await page.click('#x', { timeout: 2000 });\n"
     OP = PatchOp(
@@ -73,13 +74,13 @@ class TestApplyOpsBreaksHardlinks:
         assert original.stat().st_nlink == 1
         assert patched.stat().st_ino != original.stat().st_ino
 
-    def test_end_to_end_via_hardlink_copy_project(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FLAKY_HEALER_HARDLINK_COPY", "1")
+    def test_end_to_end_copy_project_never_hardlinks(self, tmp_path):
         src = tmp_path / "user-repo"
         (src / "tests").mkdir(parents=True)
         original = src / "tests" / "t.spec.ts"
         original.write_text(self.ORIGINAL)
         work = copy_project(src, tmp_path / "work")
+        # copy_project byte-copies: the original never gains a second link.
         assert original.stat().st_nlink == 1
         apply_ops(work, [self.OP])
         assert original.read_text() == self.ORIGINAL

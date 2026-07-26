@@ -50,7 +50,6 @@ def _rlimits() -> None:  # pragma: no cover - retained for embedders; not used b
         pass
 
 
-@functools.lru_cache(maxsize=1)
 def _netns_prefix() -> tuple[str, ...]:
     """Best-effort argv prefix that confines the run to a fresh, unprivileged
     user+network namespace: external egress is dropped while loopback stays up,
@@ -59,12 +58,20 @@ def _netns_prefix() -> tuple[str, ...]:
 
     Returns () when disabled, or when the host can't provide it (no
     unshare/iproute2, user namespaces off) — the heal then degrades to the prior
-    host-network behavior rather than failing. Probe-gated on the exact
-    capability we need (create namespaces AND bring loopback up); cached because
-    it runs once per process, not once per burn-in run.
+    host-network behavior rather than failing. The config gate is read on every
+    call (so flipping FLAKY_HEALER_SUBPROC_ISOLATE_NET mid-process — e.g. in a
+    long-lived gateway — takes effect); only the host-capability probe below is
+    cached, since the host's namespace support cannot change within a process.
     """
     if not config.subproc_isolate_net():
         return ()
+    return _netns_probe()
+
+
+@functools.lru_cache(maxsize=1)
+def _netns_probe() -> tuple[str, ...]:
+    """Probe-gated argv prefix on the exact capability we need (create
+    namespaces AND bring loopback up); cached — one probe per process."""
     unshare = shutil.which("unshare")
     if unshare is None:
         return ()

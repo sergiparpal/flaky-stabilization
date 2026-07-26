@@ -37,9 +37,12 @@ def open_private(
     WAL/-shm sidecars are locked too.
     """
     path = Path(db_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Own the file 0600 before SQLite opens it (no-op for :memory:/file: URIs).
-    paths.precreate_private(path)
+    # Only a real on-disk path gets a parent directory and a 0600 pre-create:
+    # for ":memory:" or a "file:" URI, mkdir would create a bogus literal
+    # directory (e.g. one named "file:") beside the process CWD.
+    if paths.is_real_file_path(path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        paths.precreate_private(path)
     conn = sqlite3.connect(
         str(path), timeout=timeout, check_same_thread=check_same_thread, uri=uri
     )

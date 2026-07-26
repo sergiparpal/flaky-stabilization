@@ -56,8 +56,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `https://[::ffff:169.254.169.254]/…` could reach loopback and cloud-metadata
   addresses that are promised to stay blocked regardless of the opt-in.
 
+### Removed
+
+- The dead `FLAKY_HEALER_HARDLINK_COPY` setting: `copy_project` always
+  byte-copies (hardlinks were rejected as an isolation mode), but the config
+  accessor and its docstring still described hardlinking as live behavior. The
+  flag, the unused copy helper, and the stale docstrings are gone; the
+  temp-file + `os.replace` write in `apply_ops` stays as defense in depth.
+
 ### Fixed
 
+- Orchestrator remote-vs-local log classification now uses
+  `logfetch.is_remote` instead of a naive `startswith("http")`, so a LOCAL
+  log whose path merely begins with "http" (e.g. `http_logs/run.log`) is
+  again PII-gated as bug-branch evidence and fetched for the incident-context
+  query.
+- `validate_no_pii` now enforces its documented `MAX_SKIPPED` cap on per-file
+  skip entries too (only report rows are dropped; any skip still forces
+  `complete: false`, so the gate semantics are unchanged).
+- `storage.db.open_private` no longer mkdirs/pre-creates for `:memory:` or
+  `file:` URI inputs, which would have created a bogus literal directory
+  (e.g. one named `file:`) beside the process CWD.
+- Healer tool envelopes mask credential token shapes in exception-derived
+  text (handler errors, GitHub API errors, CI-log warnings, `pr_skipped`
+  git-flow detail, `/heal` failures) — e.g. a push error echoing a
+  credentialed remote URL no longer reaches the model in the clear.
+- The subprocess sandbox re-reads the `FLAKY_HEALER_SUBPROC_ISOLATE_NET`
+  gate on every run (only the host-capability probe is cached), so flipping
+  it in a long-lived gateway takes effect without a restart.
 - Healer data-dir resolution now delegates to the unified hermes-home resolver
   (host helpers, then an *expanded* `$HERMES_HOME`, then `~/.hermes`). The raw
   env read it used meant a crontab/EnvironmentFile-style `HERMES_HOME=~/...`

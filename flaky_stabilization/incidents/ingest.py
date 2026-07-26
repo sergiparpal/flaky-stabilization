@@ -578,8 +578,11 @@ def run_sync(
     "seen_keys"}`` where ``ingested`` counts rows that were new or actually
     changed (unchanged re-fetches don't count) and ``seen_keys`` is the set of
     issue keys fetched during this run (used by the CLI's ``--full`` sweep).
-    Per-issue mapping errors are swallowed; transport/client errors propagate
-    to the caller (the provider's background thread, which logs and continues).
+    A per-issue mapping failure rejects the whole page with
+    :class:`SyncProtocolError` — skipping one row is unsafe (incremental sync
+    could advance past it; a full sync could delete its local copy as
+    "unseen"). Transport/client/protocol errors propagate to the caller (the
+    provider's background thread, which logs and continues).
     """
     jql = (jql or "").strip()
     _clear_tokens_if_query_changed(store, jql)

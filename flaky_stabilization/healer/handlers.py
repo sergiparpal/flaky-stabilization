@@ -63,6 +63,19 @@ def _err(message: str, **extra) -> str:
     return json.dumps({"error": message, **extra})
 
 
+def _safe_exc_text(exc: Exception) -> str:
+    """Exception text safe for a model-facing envelope: token shapes masked.
+
+    Exception messages are the one healer output assembled from arbitrary
+    third-party strings (git stderr, HTTP client errors, OS errors) without
+    passing the CI-log scrubber, so a token echoed there (e.g. a push error
+    quoting a credentialed remote URL) would otherwise reach the model in the
+    clear. Only the token-shape mask is applied — not the full KV scrubber —
+    so ordinary failure prose stays readable.
+    """
+    return redact_mod.mask_tokens(f"{type(exc).__name__}: {exc}")
+
+
 def _json_safe(fn):
     """Tool-handler contract guard: any uncaught exception becomes an error JSON
     string rather than propagating (the host expects every handler to return one).
@@ -74,7 +87,7 @@ def _json_safe(fn):
             return fn(params, **kwargs)
         except Exception as exc:  # noqa: BLE001 — last line of defense for the JSON contract
             log.debug("handler %s failed", fn.__name__, exc_info=True)
-            return _err(f"{type(exc).__name__}: {exc}")
+            return _err(_safe_exc_text(exc))
 
     return wrapper
 
@@ -125,7 +138,9 @@ def fetch_ci_logs(params, ctx=None, transport=None, **kwargs) -> str:
         jobs = adapter.get_jobs(repo, build_id)
         blob = adapter.download_logs_zip(repo, build_id)
     except ci_base.CIError as exc:
-        return _err(f"GitHub API error: {exc}", status=exc.status)
+        # CIError text embeds a response-body snippet — mask token shapes.
+        return _err(f"GitHub API error: {redact_mod.mask_tokens(str(exc))}",
+                    status=exc.status)
 
     failed_jobs = []
     for job in jobs.get("jobs", []):
@@ -225,7 +240,9 @@ def _pull_ci_log(build_id: str, repo: str, transport) -> tuple[str | None, list[
         text = ci_logs.logs_zip_to_text(blob)
         return ci_logs.scrub_ci_secrets(logfilter.filter_log(text).text), warnings
     except (ci_base.CIError, *ci_logs.ZIP_READ_ERRORS) as exc:
-        warnings.append(f"could not fetch CI logs for run {build_id}: {exc}")
+        warnings.append(
+            f"could not fetch CI logs for run {build_id}: "
+            f"{redact_mod.mask_tokens(str(exc))}")
         return None, warnings
 
 
@@ -377,7 +394,7 @@ def _run_heal(params, ctx=None, sandbox=None, store=None, transport=None, **kwar
             duration_s=report.duration_s,
         )
     except Exception as exc:  # noqa: BLE001 — persistence must not kill the heal result
-        warnings.append(f"could not record run: {exc}")
+        warnings.append(f"could not record run: {_safe_exc_text(exc)}")
 
     payload: dict = {"mode": mode, "report": report.to_dict()}
     if warnings:
@@ -393,7 +410,9 @@ def _run_heal(params, ctx=None, sandbox=None, store=None, transport=None, **kwar
                 payload["pr"] = _pr_flow(ctx, report, repo_dir)
             except gitflow.GitFlowError as exc:
                 payload["pr"] = None
-                payload["pr_skipped"] = str(exc)
+                # GitFlowError embeds dispatch stderr/stdout detail — mask
+                # token shapes (a push error can echo a credentialed URL).
+                payload["pr_skipped"] = redact_mod.mask_tokens(str(exc))
     return json.dumps(payload)
 
 
@@ -453,7 +472,7 @@ def heal_command(args=None, ctx=None, **kwargs) -> str:
         return _heal_command(args, ctx=ctx, **kwargs)
     except Exception as exc:  # noqa: BLE001 — slash commands must return text, never raise
         log.debug("heal_command failed", exc_info=True)
-        return f"heal failed: {type(exc).__name__}: {exc}"
+        return f"heal failed: {_safe_exc_text(exc)}"
 
 
 def _heal_command(args=None, ctx=None, **kwargs) -> str:

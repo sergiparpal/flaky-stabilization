@@ -151,8 +151,7 @@ class TestCopyProject:
         assert (dst / "a.txt").read_text() == "payload"
         assert (dst / "a.txt").stat().st_ino != f.stat().st_ino
 
-    def test_hardlink_setting_cannot_alias_source(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("FLAKY_HEALER_HARDLINK_COPY", "1")
+    def test_node_modules_copies_are_distinct_inodes(self, tmp_path):
         src = tmp_path / "src"
         (src / "node_modules" / "dep").mkdir(parents=True)
         f = src / "node_modules" / "dep" / "index.js"

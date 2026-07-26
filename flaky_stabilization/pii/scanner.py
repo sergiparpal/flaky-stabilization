@@ -181,7 +181,8 @@ def _resolve_within(path: str, real_root: str) -> str | None:
 
 def _collect_files(real_target: str, max_files: int, deadline: float) -> tuple[
         list[str], list[tuple[str, str]], bool, bool]:
-    """Return (files, skipped_dirs, truncated). Deterministic order for CI parity.
+    """Return ``(files, skipped_dirs, files_truncated, walk_timed_out)``.
+    Deterministic order for CI parity.
 
     ``skipped_dirs`` carries ``(path, reason)`` for every directory whose contents
     were never reached. Both cases used to be silent, which let ``complete: true``
@@ -600,7 +601,12 @@ def scan(
         )
         bytes_truncated = bytes_truncated or outcome.bytes_truncated
         if outcome.skip is not None:
-            skipped.append(outcome.skip)
+            # MAX_SKIPPED bounds the returned metadata (a max_files=10000 scan
+            # of unreadable files must not inflate the result dict); the cap
+            # drops only the *report rows* — every skip still leaves `skipped`
+            # non-empty, so `complete` stays False and the gate still refuses.
+            if len(skipped) < MAX_SKIPPED:
+                skipped.append(outcome.skip)
             continue
         scanned += 1
         findings.extend(outcome.rows)

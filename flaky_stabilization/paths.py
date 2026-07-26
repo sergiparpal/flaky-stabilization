@@ -92,11 +92,15 @@ def get_data_dir() -> Path:
     return data_dir
 
 
-def _is_real_file_path(path: Path | str) -> bool:
+def is_real_file_path(path: Path | str) -> bool:
     """False for the sentinel/URI paths SQLite accepts (``:memory:``, ``file:``)
-    that have no on-disk file to permission-harden."""
+    that have no on-disk file to mkdir-for or permission-harden."""
     s = str(path)
     return bool(s) and s != ":memory:" and not s.startswith("file:")
+
+
+# Backwards-compatible private alias (pre-existing intra-package callers).
+_is_real_file_path = is_real_file_path
 
 
 def precreate_private(path: Path | str) -> None:

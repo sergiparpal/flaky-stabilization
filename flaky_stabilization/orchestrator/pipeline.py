@@ -359,6 +359,20 @@ class Pipeline:
             logger.warning("could not remove temporary pipeline evidence", exc_info=True)
 
     @staticmethod
+    def _is_remote_log(value: Any) -> bool:
+        """Whether *value* is a remote (http/https URL) log reference.
+
+        Delegates to ``logfetch.is_remote`` — the one owner of the rule — so a
+        LOCAL path that merely starts with "http" (e.g. ``http_logs/run.log``)
+        is still treated as local: fetched for the incident-context query and,
+        above all, appended to the bug branch's PII-gated evidence paths. The
+        naive ``startswith("http")`` checks this replaces got both wrong.
+        """
+        from ..triage import logfetch
+
+        return logfetch.is_remote(str(value))
+
+    @staticmethod
     def _safe_evidence_ref(value: Any) -> str:
         """Non-sensitive evidence identifier for results and generated text."""
         from ..pii.scanner import mask_pii
@@ -403,7 +417,7 @@ class Pipeline:
         if self.stages.incident_search is None:
             return None
         query = test_id
-        if log_path and not str(log_path).startswith("http"):
+        if log_path and not self._is_remote_log(log_path):
             try:
                 from .. import triage
                 from ..triage import logfetch
@@ -529,7 +543,7 @@ class Pipeline:
         evidence_paths = self._coerce_evidence_paths(ctx)
         if evidence_paths is None:
             return OUTCOME_NEEDS_ATTENTION
-        if log_path and not str(log_path).startswith("http"):
+        if log_path and not self._is_remote_log(log_path):
             evidence_paths.append(str(log_path))
 
         if not self._pii_gate(ctx, evidence_paths):

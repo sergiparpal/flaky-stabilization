@@ -69,7 +69,6 @@ ENV_GITHUB_API = "FLAKY_HEALER_GITHUB_API"
 ENV_ALLOW_SUBPROC_PR = "FLAKY_HEALER_ALLOW_SUBPROCESS_PR"
 ENV_SUBPROC_ISOLATE_NET = "FLAKY_HEALER_SUBPROC_ISOLATE_NET"
 ENV_RUN_CONCURRENCY = "FLAKY_HEALER_RUN_CONCURRENCY"
-ENV_HARDLINK_COPY = "FLAKY_HEALER_HARDLINK_COPY"
 
 # Pinned to the @playwright/test version in fixtures/toy-app/package.json so the
 # image's bundled browsers match the project's playwright-core revision, AND by
@@ -344,21 +343,3 @@ def run_concurrency() -> int:
         return max(1, int(raw))
     except ValueError:
         return 1
-
-
-def hardlink_copy() -> bool:
-    """Whether ``copy_project`` may hardlink files instead of byte-copying them.
-
-    Off by default. When on, project copies (above all the large, immutable
-    ``node_modules`` tree) are hardlinked on the same filesystem — near-instant
-    and disk-free — with a per-file real-copy fallback across devices. Safe
-    because ``apply_ops`` replaces patched files via a sibling temp file +
-    ``os.replace``, landing every write on a NEW inode instead of the
-    hardlinked original (writing through the shared inode would silently edit
-    the user's real project); ``node_modules`` is never mutated at run time.
-    Enable on hosts where the project tree lives on a single filesystem.
-    """
-    raw = os.environ.get(ENV_HARDLINK_COPY)
-    if raw:
-        _warn_legacy_env(ENV_HARDLINK_COPY, _HEALER_SECTION)
-    return _truthy(raw)

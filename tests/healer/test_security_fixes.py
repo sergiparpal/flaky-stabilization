@@ -330,20 +330,27 @@ class TestSubprocessNetNamespace:
     def test_disabled_returns_no_prefix(self, monkeypatch):
         from flaky_healer.sandbox import subproc
 
+        # The config gate is read per call (not cached), so flipping the env
+        # var takes effect without any cache poking; only the host-capability
+        # probe (_netns_probe) is cached.
         monkeypatch.setenv("FLAKY_HEALER_SUBPROC_ISOLATE_NET", "0")
-        subproc._netns_prefix.cache_clear()
-        try:
-            assert subproc._netns_prefix() == ()
-        finally:
-            subproc._netns_prefix.cache_clear()
+        assert subproc._netns_prefix() == ()
 
     def test_enabled_is_empty_or_unshare_with_net(self, monkeypatch):
         from flaky_healer.sandbox import subproc
 
         monkeypatch.setenv("FLAKY_HEALER_SUBPROC_ISOLATE_NET", "1")
-        subproc._netns_prefix.cache_clear()
+        subproc._netns_probe.cache_clear()
         try:
             prefix = subproc._netns_prefix()
             assert prefix == () or (prefix[0].endswith("unshare") and "--net" in prefix)
         finally:
-            subproc._netns_prefix.cache_clear()
+            subproc._netns_probe.cache_clear()
+
+    def test_gate_flips_without_cache_clear(self, monkeypatch):
+        from flaky_healer.sandbox import subproc
+
+        monkeypatch.setenv("FLAKY_HEALER_SUBPROC_ISOLATE_NET", "1")
+        subproc._netns_prefix()  # may or may not probe successfully
+        monkeypatch.setenv("FLAKY_HEALER_SUBPROC_ISOLATE_NET", "0")
+        assert subproc._netns_prefix() == ()
