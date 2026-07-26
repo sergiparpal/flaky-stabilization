@@ -149,8 +149,9 @@ risk — the bearer token traveling in cleartext over a plain-`http` base. The t
 (`healer/flaky_healer/ci/base.py`) is deliberately **not** given `safehttp.py`'s private-IP
 blocklist: GitHub **Enterprise** legitimately resolves to internal/RFC1918 addresses, so blocking
 private ranges would break every GHE deployment — the primary reason a team sets
-`FLAKY_HEALER_GITHUB_API`. The base is operator-config (an env var), not remote-attacker input, so
-the residual SSRF risk is low. If defense-in-depth here is ever wanted, the correct form is routing
+`healer.github_api` (formerly `FLAKY_HEALER_GITHUB_API`). The base is operator-config (a config
+key or env var), not remote-attacker input, so the residual SSRF risk is low. If defense-in-depth
+here is ever wanted, the correct form is routing
 through `safehttp`'s guarded opener with RFC1918 **allowed** (keeping the loopback/link-local/
 cloud-metadata blocks and connect-time IP pinning), so GHE keeps working while
 `169.254.169.254`/loopback targets are still refused.
@@ -171,8 +172,42 @@ deferring the question.
 Related: the same improvement branch added one-shot deprecation warnings for the legacy
 env/config fallbacks (`FLAKY_HEALER_*`, `HERMES_CI_TRIAGE_*`, `JIRA_BASE_URL`/`JIRA_EMAIL`,
 `HERMES_JIRA_STRICT_REDACTION`, and the legacy `test-history/config.json` precedence level).
-Their removal at 1.0 is pre-approved: README.md and MIGRATION.md already document them as
-"deprecated, removed at 1.0".
+Removal at 1.0 is pre-approved: README.md and MIGRATION.md document them as "deprecated, removed
+at 1.0", one row per key.
+
+**C1 — every deprecation warning must name a config key that exists (2026-07-26).** The question:
+five warned variables (`FLAKY_HEALER_GITHUB_API`, `FLAKY_HEALER_SUBPROC_PASS_ENV`,
+`FLAKY_HEALER_SUBPROC_ISOLATE_NET`, `FLAKY_HEALER_RUN_CONCURRENCY`, and
+`HERMES_JIRA_STRICT_REDACTION`) told the operator to "move it into
+`flaky-stabilization/config.json`", but their accessors read the environment only and no matching
+key existed — the advice could not be followed, and a 1.0 removal would have deleted the only way
+to set the behavior. Answer: **add the five keys** (`healer.github_api`,
+`healer.subproc_pass_env`, `healer.subproc_isolate_net`, `healer.run_concurrency`,
+`jira.strict_redaction`) rather than reword the warnings to "env-only, no replacement planned".
+
+Rationale: env-only settings are invisible to `flaky-stab status`, which summarizes
+`load_config()` only — and two of the five are security-relevant (`subproc_isolate_net` disables
+the subprocess sandbox's network isolation; `strict_redaction` toggles the egress PII canary), so
+they are exactly the settings that must be inspectable and version-controlled. A permanent
+env-only tier would also reopen the split this plugin exists to close, and it was already
+inconsistent in practice: a GitHub Enterprise operator configured the triage side via
+`triage.token_hosts`/`allow_private` in the file but the healer side via an env var. The change is
+purely additive — env still wins over the file, so existing installs behave identically.
+
+`subproc_pass_env` defaults to `null`, not `[]`, for the same reason as `triage.log_roots` and
+`triage.token_hosts`: a typed list default makes `_coerce` degrade a comma-separated *string* back
+to the default, and accepting both shapes lets an operator paste the value straight out of the env
+var it replaces.
+
+Carve-out: `FLAKY_HEALER_DATA_DIR` stays environment-only by design — it selects the directory
+that *contains* `config.json`, so it cannot be configured from inside it. Its warning already
+points at the default data directory rather than a config key, so it was never part of this
+defect. Consequence: the invariant is now enforced by
+`tests/common/test_deprecation.py::test_every_config_key_named_in_a_deprecation_message_exists`,
+which scans the package for deprecation replacement strings and fails if any names a key absent
+from `DEFAULTS`. Alternatives rejected: rewording the warnings (cheaper now, paid forever in a
+split config surface and a permanent docs carve-out), and deferring to 1.0 (would ship a knowingly
+wrong message).
 
 ## Repository rename (2026-07-26)
 

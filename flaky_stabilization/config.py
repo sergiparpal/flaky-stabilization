@@ -74,6 +74,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "allow_private": False,
     },
     # Read by the healer stage config (FLAKY_HEALER_* env vars still override).
+    # github_api ""/docker_image null mean "use the built-in default"; the
+    # subproc_*/run_concurrency keys are the config home for the knobs that
+    # used to be settable only through the environment.
     "healer": {
         "burnin": "5:10",
         "sandbox": "auto",
@@ -82,6 +85,14 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "pr_tool": "create_pull_request",
         "base_branch": "main",
         "allow_subprocess_pr": False,
+        "github_api": "",
+        # null (not []) for the same reason as triage.log_roots/token_hosts: a
+        # typed list default makes _coerce degrade a comma-separated *string*
+        # back to the default, and accepting both shapes lets an operator paste
+        # the value straight out of the env var it replaces.
+        "subproc_pass_env": None,
+        "subproc_isolate_net": True,
+        "run_concurrency": 1,
     },
     # default_max_files bounds validate_no_pii sweeps (orchestrator PII gate).
     "pii": {
@@ -102,6 +113,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "enable_write": False,
         "project_key": "INC",
         "issue_type": "Bug",
+        "strict_redaction": False,
     },
     # Read by the incidents service (pre_llm_call context injection + its
     # local-FTS prefetch bounds).

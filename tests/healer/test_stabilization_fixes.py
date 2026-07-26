@@ -16,6 +16,7 @@ Each test pins one finding so it cannot silently come back:
 """
 
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -419,7 +420,7 @@ class TestUnifiedConfigWiring:
             json.dumps({"healer": healer_section}), encoding="utf-8"
         )
 
-    def test_all_seven_keys_apply_from_the_file(self):
+    def test_all_eleven_keys_apply_from_the_file(self):
         self._write_cfg(
             {
                 "burnin": "3:7",
@@ -429,6 +430,10 @@ class TestUnifiedConfigWiring:
                 "pr_tool": "open_pr",
                 "base_branch": "develop",
                 "allow_subprocess_pr": True,
+                "github_api": "https://ghe.example.com/api/v3",
+                "subproc_pass_env": ["LD_LIBRARY_PATH", "FONTCONFIG_PATH"],
+                "subproc_isolate_net": False,
+                "run_concurrency": 4,
             }
         )
         assert healer_config.burnin() == (3, 7)
@@ -438,16 +443,30 @@ class TestUnifiedConfigWiring:
         assert healer_config.pr_tool() == "open_pr"
         assert healer_config.base_branch() == "develop"
         assert healer_config.allow_subprocess_pr() is True
+        assert healer_config.github_api_base() == "https://ghe.example.com/api/v3"
+        assert healer_config.subproc_pass_env() == ["LD_LIBRARY_PATH", "FONTCONFIG_PATH"]
+        assert healer_config.subproc_isolate_net() is False
+        assert healer_config.run_concurrency() == 4
 
     def test_env_var_beats_config_file(self, monkeypatch):
         self._write_cfg({"base_branch": "develop", "burnin": "3:7",
-                         "allow_subprocess_pr": True})
+                         "allow_subprocess_pr": True, "subproc_isolate_net": True,
+                         "run_concurrency": 4, "github_api": "https://cfg.example.com",
+                         "subproc_pass_env": ["FROM_CONFIG"]})
         monkeypatch.setenv("FLAKY_HEALER_BASE_BRANCH", "release-2")
         monkeypatch.setenv("FLAKY_HEALER_BURNIN", "2:4")
         monkeypatch.setenv("FLAKY_HEALER_ALLOW_SUBPROCESS_PR", "0")
+        monkeypatch.setenv("FLAKY_HEALER_SUBPROC_ISOLATE_NET", "0")
+        monkeypatch.setenv("FLAKY_HEALER_RUN_CONCURRENCY", "2")
+        monkeypatch.setenv("FLAKY_HEALER_GITHUB_API", "https://env.example.com")
+        monkeypatch.setenv("FLAKY_HEALER_SUBPROC_PASS_ENV", "FROM_ENV")
         assert healer_config.base_branch() == "release-2"
         assert healer_config.burnin() == (2, 4)
         assert healer_config.allow_subprocess_pr() is False
+        assert healer_config.subproc_isolate_net() is False
+        assert healer_config.run_concurrency() == 2
+        assert healer_config.github_api_base() == "https://env.example.com"
+        assert healer_config.subproc_pass_env() == ["FROM_ENV"]
 
     def test_defaults_when_section_unset(self):
         assert healer_config.burnin() == (5, 10)
@@ -457,14 +476,45 @@ class TestUnifiedConfigWiring:
         assert healer_config.pr_tool() == "create_pull_request"
         assert healer_config.base_branch() == "main"
         assert healer_config.allow_subprocess_pr() is False
+        assert healer_config.github_api_base() == "https://api.github.com"
+        assert healer_config.subproc_pass_env() == []
+        assert healer_config.subproc_isolate_net() is True
+        assert healer_config.run_concurrency() == 1
 
     def test_malformed_file_values_degrade_to_defaults(self):
         self._write_cfg(
-            {"burnin": "not-a-pair", "docker_image": 42, "allow_subprocess_pr": "yes"}
+            {"burnin": "not-a-pair", "docker_image": 42, "allow_subprocess_pr": "yes",
+             "subproc_isolate_net": "false", "run_concurrency": "many",
+             "github_api": 7, "subproc_pass_env": 3}
         )
         assert healer_config.burnin() == (5, 10)
         assert healer_config.docker_image() == healer_config.DEFAULT_DOCKER_IMAGE
         assert healer_config.allow_subprocess_pr() is False
+        # A truthy *string* must not flip a security-relevant bool (the unified
+        # loader coerces it back to the default, and _cfg_bool is strict too).
+        assert healer_config.subproc_isolate_net() is True
+        assert healer_config.run_concurrency() == 1
+        assert healer_config.github_api_base() == "https://api.github.com"
+        assert healer_config.subproc_pass_env() == []
+
+    def test_subproc_pass_env_accepts_a_comma_string_like_the_env_var(self):
+        """An operator moving FOO=a,b into the file can paste the same string."""
+        self._write_cfg({"subproc_pass_env": "LD_LIBRARY_PATH, FONTCONFIG_PATH"})
+        assert healer_config.subproc_pass_env() == ["LD_LIBRARY_PATH", "FONTCONFIG_PATH"]
+
+    def test_run_concurrency_from_file_is_clamped_to_at_least_one(self):
+        self._write_cfg({"run_concurrency": 0})
+        assert healer_config.run_concurrency() == 1
+
+    def test_config_keys_do_not_suppress_the_env_deprecation_warning(self, monkeypatch, caplog):
+        """The env vars still warn — and now name the key that replaces them."""
+        from flaky_stabilization.common import deprecation
+
+        monkeypatch.setattr(deprecation, "_seen", set())
+        monkeypatch.setenv("FLAKY_HEALER_SUBPROC_ISOLATE_NET", "0")
+        with caplog.at_level(logging.WARNING, logger="flaky_stabilization.deprecation"):
+            healer_config.subproc_isolate_net()
+        assert "healer.subproc_isolate_net" in caplog.text
 
     def test_pr_flow_targets_config_base_branch_end_to_end(self, fake_ctx):
         self._write_cfg({"base_branch": "develop"})

@@ -99,9 +99,6 @@ def _warn_legacy_env(var: str, replacement: str) -> None:
     warn_env_once(var, replacement)
 
 
-_HEALER_SECTION = "the `healer` section of flaky-stabilization/config.json"
-
-
 def _unified_healer_config() -> dict:
     """The ``healer`` section of the unified flaky-stabilization config.json.
 
@@ -143,6 +140,40 @@ def _cfg_str(key: str) -> str | None:
     if isinstance(value, str) and value.strip():
         return value.strip()
     return None
+
+
+def _cfg_bool(key: str) -> bool | None:
+    """A bool value for *key* from the unified section, else None.
+
+    Strict: only a real JSON bool counts, mirroring :func:`_coerce` in the
+    unified config (``"true"``/``1`` must not silently flip a security-relevant
+    key). ``None`` means "unset" so callers can distinguish it from ``False``.
+    """
+    value = _unified_healer_config().get(key)
+    return value if isinstance(value, bool) else None
+
+
+def _cfg_int(key: str) -> int | None:
+    """An int value for *key* from the unified section, else None (bools excluded)."""
+    value = _unified_healer_config().get(key)
+    if isinstance(value, bool):
+        return None
+    return value if isinstance(value, int) else None
+
+
+def _cfg_str_list(key: str) -> list[str]:
+    """A list of non-empty strings for *key*: a JSON list or a comma string.
+
+    Accepting both shapes matches the triage side's ``_env_or_config_list``, so
+    an operator moving ``FOO=a,b`` out of the environment can paste the same
+    string into the config file instead of having to learn a list syntax.
+    """
+    value = _unified_healer_config().get(key)
+    if isinstance(value, str):
+        value = value.split(",")
+    if not isinstance(value, list):
+        return []
+    return [str(v).strip() for v in value if str(v).strip()]
 
 
 def _resolve_hermes_home_root() -> Path:
@@ -224,11 +255,18 @@ def github_token() -> str | None:
 
 
 def github_api_base() -> str:
+    """GitHub API base for the CI-log client (GitHub Enterprise override).
+
+    The env branch keeps its historical ``is not None`` test — an explicitly
+    empty ``FLAKY_HEALER_GITHUB_API=`` has always meant "empty base", and that
+    is not this change's call to make. An empty *config* value means unset.
+    """
     env = os.environ.get(ENV_GITHUB_API)
     if env is not None:
-        _warn_legacy_env(ENV_GITHUB_API, _HEALER_SECTION)
+        _warn_legacy_env(
+            ENV_GITHUB_API, "the `healer.github_api` key in flaky-stabilization/config.json")
         return env.rstrip("/")
-    return "https://api.github.com"
+    return (_cfg_str("github_api") or "https://api.github.com").rstrip("/")
 
 
 def sandbox_backend() -> str:
@@ -288,8 +326,11 @@ def subproc_pass_env() -> list[str]:
     raw = os.environ.get(ENV_SUBPROC_PASS, "")
     names = [v.strip() for v in raw.split(",") if v.strip()]
     if names:
-        _warn_legacy_env(ENV_SUBPROC_PASS, _HEALER_SECTION)
-    return names
+        _warn_legacy_env(
+            ENV_SUBPROC_PASS,
+            "the `healer.subproc_pass_env` key in flaky-stabilization/config.json")
+        return names
+    return _cfg_str_list("subproc_pass_env")
 
 
 def allow_subprocess_pr() -> bool:
@@ -304,8 +345,8 @@ def allow_subprocess_pr() -> bool:
             ENV_ALLOW_SUBPROC_PR,
             "the `healer.allow_subprocess_pr` key in flaky-stabilization/config.json")
         return _truthy(raw)
-    value = _unified_healer_config().get("allow_subprocess_pr")
-    return value if isinstance(value, bool) else False
+    value = _cfg_bool("allow_subprocess_pr")
+    return value if value is not None else False
 
 
 def subproc_isolate_net() -> bool:
@@ -316,9 +357,12 @@ def subproc_isolate_net() -> bool:
     """
     raw = os.environ.get(ENV_SUBPROC_ISOLATE_NET)
     if raw is not None:
-        _warn_legacy_env(ENV_SUBPROC_ISOLATE_NET, _HEALER_SECTION)
+        _warn_legacy_env(
+            ENV_SUBPROC_ISOLATE_NET,
+            "the `healer.subproc_isolate_net` key in flaky-stabilization/config.json")
         return _truthy(raw)
-    return True
+    value = _cfg_bool("subproc_isolate_net")
+    return value if value is not None else True
 
 
 def run_concurrency() -> int:
@@ -331,14 +375,17 @@ def run_concurrency() -> int:
     * Docker: every container still reserves ``--memory=2g``/``--cpus=2``, so N
       parallel runs need N×2 GiB RAM and 2N CPUs.
     * Subprocess: parallel runs rely on per-run network-namespace isolation
-      (``FLAKY_HEALER_SUBPROC_ISOLATE_NET``) for a private loopback; with net
+      (``healer.subproc_isolate_net``) for a private loopback; with net
       isolation off/unavailable they would collide on the webServer port, so
       keep this at 1 there.
     """
     raw = os.environ.get(ENV_RUN_CONCURRENCY)
     if raw is None:
-        return 1
-    _warn_legacy_env(ENV_RUN_CONCURRENCY, _HEALER_SECTION)
+        value = _cfg_int("run_concurrency")
+        return max(1, value) if value is not None else 1
+    _warn_legacy_env(
+        ENV_RUN_CONCURRENCY,
+        "the `healer.run_concurrency` key in flaky-stabilization/config.json")
     try:
         return max(1, int(raw))
     except ValueError:

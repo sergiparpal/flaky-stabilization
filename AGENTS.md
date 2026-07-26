@@ -31,8 +31,11 @@ Set `HERMES_REPO=/path/to/hermes-agent` when running loader integration against 
 
 Use four-space indentation, type hints for public interfaces, `snake_case` for modules/functions,
 and `PascalCase` for classes. Ruff enforces `E`, `F`, `W`, `I`, `UP`, and `B` rules with a
-100-character line limit. Preserve the targeted per-file exceptions in `pyproject.toml`; do not
-mechanically restyle ported legacy modules. Maintain the enforced dependency direction:
+100-character line limit. Source packages carry **no** per-file ignores — that debt was cleared,
+so do not add new suppressions to `flaky_stabilization/*`. The remaining `per-file-ignores` in
+`pyproject.toml` cover ported legacy test suites only (`tests/history`, `tests/detective`,
+`tests/pii`, `tests/bugreport`, `tests/triage`, `tests/incidents`); keep them and do not
+mechanically restyle those files. Maintain the enforced dependency direction:
 `common` ← stages/storage ← `orchestrator` ← registration/CLI.
 
 ## Testing Guidelines
@@ -45,6 +48,14 @@ credentials. Maintain at least 85% coverage:
 ```bash
 bash scripts/run_tests.sh -- --cov=flaky_stabilization --cov-fail-under=85
 ```
+
+GitHub Actions (`.github/workflows/ci.yml`) runs four jobs on push and pull request: `lint`
+(`ruff check .`), `tests` (the offline suite on Python 3.11/3.12/3.13 with the 85% coverage gate),
+`docker-tests` (the docker-marked sandbox tests against a real daemon —
+`bash scripts/run_tests.sh tests/healer -- -m docker -vv`, which needs the toy-app fixture
+dependencies installed), and `build` (wheel build plus a smoke install that imports
+`flaky_stabilization.register`). Run the lint and offline commands locally before pushing; the
+docker job is the one that catches sandbox regressions the offline suite cannot.
 
 ## Commit & Pull Request Guidelines
 

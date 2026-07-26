@@ -20,6 +20,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wheel smoke-install in the CI build job: the built wheel is installed and
   `flaky_stabilization.register` imported, so packaging errors fail the build
   instead of a user install.
+- Five config keys that close the gap between what the deprecation warnings
+  told operators to do and what was actually settable: `healer.github_api`,
+  `healer.subproc_pass_env`, `healer.subproc_isolate_net`,
+  `healer.run_concurrency`, and `jira.strict_redaction`. These behaviors were
+  reachable only through `FLAKY_HEALER_GITHUB_API`,
+  `FLAKY_HEALER_SUBPROC_PASS_ENV`, `FLAKY_HEALER_SUBPROC_ISOLATE_NET`,
+  `FLAKY_HEALER_RUN_CONCURRENCY`, and `HERMES_JIRA_STRICT_REDACTION`, whose
+  warnings said to move them into `config.json` where no matching key existed
+  — so the advice could not be followed and the promised 1.0 removal would
+  have deleted the only way to set them. Env still wins over the file, so
+  existing installs are unaffected. Two of the five are security-relevant
+  (`subproc_isolate_net`, `strict_redaction`) and are now inspectable in
+  config rather than invisible in the environment. See `docs/DECISIONS.md` C1.
+- `tests/common/test_deprecation.py::test_every_config_key_named_in_a_deprecation_message_exists`
+  scans the package for deprecation replacement strings and fails if any names
+  a key absent from `DEFAULTS`, so this class of defect cannot return.
 - This `CHANGELOG.md`, backfilled for 0.1.0–0.1.2 and linked from the README.
 - `docs/DECISIONS.md` entry H1: the healer is the plugin's differentiator —
   core, will grow, with docker CI coverage growing alongside it.
@@ -36,15 +52,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fail-closed PII gate) moved to the first screen; the seven-plugin migration
   story moved below the fold. No facts removed.
 
+### Documentation
+
+- Complete, verified configuration reference in the README: every section and
+  key of `config.json` with its real default (previously a partial prose
+  summary that also named `pii.max_files` instead of `pii.default_max_files`,
+  and omitted `triage.log_roots`/`token_hosts`/`allow_private`,
+  `healer.docker_image`/`git_tool`/`pr_tool`/`allow_subprocess_pr`,
+  `detective.deliver`/`report_scope`, `history.db_path_override`, and five
+  `jira` transport keys). The five settings that widen a security boundary are
+  called out together.
+- Environment variables are documented as a single mapping table — every
+  deprecated override paired with the `config.json` key that replaces it —
+  plus the one documented exception, `FLAKY_HEALER_DATA_DIR`.
+- README security model: the triage SSRF guard's actual contract — the
+  `triage.allow_private` opt-in, the loopback/cloud-metadata block that holds
+  regardless of it (including IPv4-mapped IPv6 literals), and the token-host
+  allowlist.
+- `AGENTS.md`: source packages no longer carry ruff per-file ignores (the
+  remaining ones cover ported legacy test suites only), and the four CI jobs
+  are described so contributors know what runs before they push.
+
 ### Deprecated
 
 - The legacy env overrides (`FLAKY_HEALER_*`, `HERMES_CI_TRIAGE_*`,
   `JIRA_BASE_URL`/`JIRA_EMAIL`, `HERMES_JIRA_STRICT_REDACTION`) and the legacy
   `test-history/config.json` precedence level: each use now logs one
-  deprecation warning per process (logger `flaky_stabilization.deprecation`);
-  all of them will be removed at 1.0. Move settings into
-  `flaky-stabilization/config.json`. The `migrate` command is exempt — it is
-  supposed to read legacy data.
+  deprecation warning per process (logger `flaky_stabilization.deprecation`),
+  naming the specific `config.json` key that replaces it, and all of them will
+  be removed at 1.0. Move settings into `flaky-stabilization/config.json`. The
+  `migrate` command is exempt — it is supposed to read legacy data.
+  `FLAKY_HEALER_DATA_DIR` is the one override that stays environment-only: it
+  selects the directory that *contains* `config.json`, so it cannot live
+  inside it; its warning points at the default data directory instead.
 
 ### Security
 

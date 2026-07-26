@@ -48,7 +48,9 @@ selector misses, race conditions) rather than a genuine regression.
   or `subprocess` (weaker fallback; treat with more skepticism). A
   `subprocess`-validated heal will **not** open a PR by default — it ran on the
   host with no container isolation; re-run on the Docker backend, or set
-  `FLAKY_HEALER_ALLOW_SUBPROCESS_PR=1` to override.
+  `healer.allow_subprocess_pr: true` in `flaky-stabilization/config.json` to
+  override (the `FLAKY_HEALER_ALLOW_SUBPROCESS_PR=1` env var still works but is
+  deprecated, removed at 1.0).
 - A learned recipe is never applied without a fresh full burn-in.
 - Trace summaries are deliberately bounded and redacted: secrets and PII are
   masked, and network URLs are reduced to their origin. Use the local trace

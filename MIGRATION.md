@@ -56,10 +56,15 @@ guide is for moving data and configuration from an existing installation.
 
 4. **Env vars are unchanged**: `GITHUB_TOKEN`, `JIRA_API_TOKEN`,
    `FLAKY_HEALER_*`, `HERMES_CI_TRIAGE_*`, `JIRA_BASE_URL`/`JIRA_EMAIL`,
-   `HERMES_JIRA_STRICT_REDACTION` all still work. The legacy overrides
-   (`FLAKY_HEALER_*`, `HERMES_CI_TRIAGE_*`, `JIRA_BASE_URL`/`JIRA_EMAIL`,
-   `HERMES_JIRA_STRICT_REDACTION`) are **deprecated and will be removed at
-   1.0** — move them into `flaky-stabilization/config.json`.
+   `HERMES_JIRA_STRICT_REDACTION` all still work.
+
+   The legacy overrides are **deprecated and will be removed at 1.0** — move
+   them into `flaky-stabilization/config.json`. Every one has a key to move to
+   and the deprecation warning names it; the README's environment-variable
+   table lists the full mapping. The single exception is
+   `FLAKY_HEALER_DATA_DIR`, which stays env-only by design (it selects the
+   directory holding `config.json`, so it cannot live inside it) — stop
+   setting it and use the default `<hermes_home>/flaky-stabilization/`.
 
 ## Configuration mapping
 

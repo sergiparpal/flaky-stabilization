@@ -12,9 +12,10 @@
 2. **Optional credentials** (each unlocks one stage; nothing breaks without them):
 
    * `GITHUB_TOKEN` — unlocks `fetch_ci_logs` (CI-log fetching from GitHub Actions).
-   * `JIRA_API_TOKEN` (+ `jira.base_url` in the config, or `JIRA_BASE_URL`) —
+   * `JIRA_API_TOKEN` (+ `jira.base_url` in `flaky-stabilization/config.json`) —
      unlocks the Jira incident sync and, only if you also set
-     `jira.enable_write: true`, the `jira_create_incident` write-back.
+     `jira.enable_write: true`, the `jira_create_incident` write-back. The
+     `JIRA_BASE_URL` env var still works but is deprecated (removed at 1.0).
 
 3. **Optional image-evidence OCR.** To scan screenshots or other image
    evidence, install the package's `ocr` extra in the environment that runs

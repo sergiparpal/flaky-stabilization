@@ -25,11 +25,25 @@ STRICT_REDACTION_ENV = "HERMES_JIRA_STRICT_REDACTION"
 
 
 def strict_enabled() -> bool:
+    """Whether the model-facing egress canary re-scans already-redacted output.
+
+    Precedence: ``HERMES_JIRA_STRICT_REDACTION`` (deprecated) over the unified
+    ``jira.strict_redaction``, then off. Imported lazily and fail-safe: this
+    runs on every model-facing string, so a config problem must degrade to
+    "canary off" rather than break the egress path it is guarding.
+    """
     raw = os.environ.get(STRICT_REDACTION_ENV, "").strip()
     if raw:
         deprecation.warn_env_once(
-            STRICT_REDACTION_ENV, "the `jira` section of flaky-stabilization/config.json")
-    return raw.lower() in ("1", "true", "yes", "on")
+            STRICT_REDACTION_ENV,
+            "the `jira.strict_redaction` key in flaky-stabilization/config.json")
+        return raw.lower() in ("1", "true", "yes", "on")
+    try:
+        from .. import config as unified_config
+
+        return bool(unified_config.load_config()["jira"]["strict_redaction"])
+    except Exception:
+        return False
 
 
 def guard(text: str, where: str) -> str:

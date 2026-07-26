@@ -101,26 +101,80 @@ Both databases refuse a schema version newer than this installed plugin
 supports. Upgrade the plugin before opening a newer database; do not point an
 older build at it.
 
+`<hermes_home>` is resolved by one shared resolver, in order: the host's own
+helpers, then `$HERMES_HOME` (expanded — `~` and `$VAR` are honoured, so a
+crontab-style `HERMES_HOME=~/hermes-data` works), then `~/.hermes`. Every
+stage delegates to it, so config and storage always land on one profile.
+
 ## Configuration
 
-One JSON file: `<hermes_home>/flaky-stabilization/config.json`. All keys
-optional; malformed files degrade to defaults. Sections (defaults in
-parentheses): `history` (lookback 30d, stack-trace cap 500),
-`detective` (window 14d, min_fails 3, include_errors, schedule `0 9 * * *`),
-`triage` (enable_enrichment), `healer` (burnin `5:10`, sandbox auto, base
-branch main), `pii` (max_files 2000), `jira` (base_url, email, jql,
-retention, **enable_write: false**, project_key INC, issue_type Bug),
-`incidents` (context_injection on, prefetch limit 3 / timeout 1.5s),
-`pipeline` (default_heal_mode suggest, heal_categories [flaky, timeout],
-require_pii_gate true — never set false in production).
+One JSON file: `<hermes_home>/flaky-stabilization/config.json`. Every key is
+optional. A malformed file, a mistyped value, or a `null` on a typed key
+degrades to the default instead of raising; unknown sections and unknown keys
+inside known sections are preserved untouched (forward compatibility).
+Defaults in parentheses:
 
-Precedence: env var > `config.json` section > (for `history` only) the
-legacy `test-history/config.json` > built-in default. Legacy env vars keep
-working as overrides: `FLAKY_HEALER_*`, `HERMES_CI_TRIAGE_*`,
-`JIRA_BASE_URL`/`JIRA_EMAIL`, `HERMES_JIRA_STRICT_REDACTION`. These legacy
-env overrides and the legacy `test-history/config.json` precedence level are
-**deprecated and will be removed at 1.0** (each use logs one warning per
-process). Secrets live **only** in env: `GITHUB_TOKEN`, `JIRA_API_TOKEN`.
+| Section | Keys |
+|---|---|
+| `history` | `default_lookback_days` (30), `max_stack_trace_chars` (500), `db_path_override` (null — validated to stay inside the Hermes home) |
+| `detective` | `window_days` (14), `min_fails` (3), `include_errors` (true), `schedule` (`0 9 * * *`), `deliver` (`local`), `report_scope` (`changes-only`) |
+| `triage` | `enable_enrichment` (true), `log_roots` (null), `token_hosts` (null), `allow_private` (**false**) |
+| `healer` | `burnin` (`5:10`), `sandbox` (`auto`), `docker_image` (null → the pinned digest), `git_tool` (`terminal`), `pr_tool` (`create_pull_request`), `base_branch` (`main`), `allow_subprocess_pr` (**false**), `github_api` (`""` → `https://api.github.com`), `subproc_pass_env` (null; list or comma string), `subproc_isolate_net` (**true**), `run_concurrency` (1) |
+| `pii` | `default_max_files` (2000) |
+| `jira` | `base_url` (`""`), `email` (`""`), `auth_mode` (`api_token`), `jql` (`project = INC ORDER BY updated DESC`), `root_cause_field` (null), `page_size` (50), `max_pages` (20), `retention_days` (0), `sync_min_interval` (60.0), `enable_write` (**false**), `project_key` (`INC`), `issue_type` (`Bug`), `strict_redaction` (false) |
+| `incidents` | `context_injection` (true), `prefetch_limit` (3), `prefetch_timeout` (1.5) |
+| `pipeline` | `default_heal_mode` (`suggest`), `heal_categories` (`[flaky, timeout]`), `require_pii_gate` (**true** — never set false in production) |
+
+Five keys widen a security boundary and ship at the safe value:
+`pipeline.require_pii_gate` (the gate itself), `jira.enable_write` (tracker
+write-back), `healer.allow_subprocess_pr` (lets PR mode proceed on a result
+validated only in the weaker subprocess sandbox), `healer.subproc_isolate_net`
+(set false and the subprocess sandbox keeps external network access), and
+`triage.allow_private` (lets CI-log fetches reach private/RFC1918 destinations
+— loopback and cloud-metadata addresses stay blocked either way, including via
+an IPv4-mapped IPv6 literal).
+
+### Environment variables
+
+Secrets live **only** in the environment, never in the config file:
+`GITHUB_TOKEN`, `JIRA_API_TOKEN`.
+
+Precedence: env var > `config.json` section > (for `history` only) the legacy
+`test-history/config.json` > built-in default.
+
+**Deprecated — removed at 1.0.** Every legacy override has a `config.json` key
+to move to, and each use logs one warning per process naming that key (logger
+`flaky_stabilization.deprecation`). The legacy `test-history/config.json`
+precedence level is deprecated on the same schedule. The `migrate` command is
+exempt — it is supposed to read legacy data.
+
+| Env var | Move to |
+|---|---|
+| `FLAKY_HEALER_BURNIN` | `healer.burnin` |
+| `FLAKY_HEALER_SANDBOX` | `healer.sandbox` |
+| `FLAKY_HEALER_DOCKER_IMAGE` | `healer.docker_image` |
+| `FLAKY_HEALER_GIT_TOOL` | `healer.git_tool` |
+| `FLAKY_HEALER_PR_TOOL` | `healer.pr_tool` |
+| `FLAKY_HEALER_BASE_BRANCH` | `healer.base_branch` |
+| `FLAKY_HEALER_ALLOW_SUBPROCESS_PR` | `healer.allow_subprocess_pr` |
+| `FLAKY_HEALER_GITHUB_API` | `healer.github_api` |
+| `FLAKY_HEALER_SUBPROC_PASS_ENV` | `healer.subproc_pass_env` |
+| `FLAKY_HEALER_SUBPROC_ISOLATE_NET` | `healer.subproc_isolate_net` |
+| `FLAKY_HEALER_RUN_CONCURRENCY` | `healer.run_concurrency` |
+| `HERMES_CI_TRIAGE_LOG_ROOTS` | `triage.log_roots` |
+| `HERMES_CI_TRIAGE_TOKEN_HOSTS` | `triage.token_hosts` |
+| `HERMES_CI_TRIAGE_ALLOW_PRIVATE` | `triage.allow_private` |
+| `HERMES_JIRA_STRICT_REDACTION` | `jira.strict_redaction` |
+| `JIRA_BASE_URL` | `jira.base_url` |
+| `JIRA_EMAIL` | `jira.email` |
+
+**One exception: `FLAKY_HEALER_DATA_DIR`** relocates the healer data dir
+(patches, the `learned-patterns.md` mirror) and stays environment-only by
+design — it selects the directory that *contains* `config.json`, so it cannot
+live inside it. It exists to preserve a pre-unification location; the
+supported answer is to stop setting it and use the default
+`<hermes_home>/flaky-stabilization/`, which is what its deprecation warning
+says.
 
 The PII gate is intentionally fail-closed: evidence must be both `clean` and
 `complete`. A scan that reaches a file, traversal, byte, finding, or time
@@ -161,7 +215,14 @@ content—is not complete and cannot authorize an external ticket write.
    safe filename.
 6. **Bounded remote clients** — Jira and CI clients enforce HTTPS where
    credentials are involved, cap responses, and avoid returning upstream error
-   bodies that could echo sensitive incident or log content.
+   bodies that could echo sensitive incident or log content. The CI-log fetcher
+   additionally blocks private/RFC1918 destinations unless
+   `triage.allow_private` is opted into, and blocks loopback and cloud-metadata
+   addresses *regardless* of that opt-in — including when they are spelled as
+   an IPv4-mapped IPv6 literal (`https://[::ffff:169.254.169.254]/…`), which
+   Python < 3.13 does not classify as link-local on its own. The auth token is
+   sent only to `api.github.com` / `raw.githubusercontent.com` plus any host
+   added via `triage.token_hosts`.
 
 ## Triage taxonomy
 

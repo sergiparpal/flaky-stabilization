@@ -8,8 +8,9 @@ make the difference visible.
 The environment is built from scratch: PATH, CI=1, HOME=<temp>, plus
 PLAYWRIGHT_BROWSERS_PATH (resolved from the real home before scrubbing, else
 headless browsers would not be found) and any vars explicitly allowlisted via
-$FLAKY_HEALER_SUBPROC_PASS_ENV (e.g. LD_LIBRARY_PATH on hosts where browser
-system libraries live in a user-space dir).
+``healer.subproc_pass_env`` / $FLAKY_HEALER_SUBPROC_PASS_ENV (e.g.
+LD_LIBRARY_PATH on hosts where browser system libraries live in a user-space
+dir).
 """
 
 from __future__ import annotations
@@ -58,10 +59,11 @@ def _netns_prefix() -> tuple[str, ...]:
 
     Returns () when disabled, or when the host can't provide it (no
     unshare/iproute2, user namespaces off) — the heal then degrades to the prior
-    host-network behavior rather than failing. The config gate is read on every
-    call (so flipping FLAKY_HEALER_SUBPROC_ISOLATE_NET mid-process — e.g. in a
-    long-lived gateway — takes effect); only the host-capability probe below is
-    cached, since the host's namespace support cannot change within a process.
+    host-network behavior rather than failing. The gate (``healer.
+    subproc_isolate_net``, or the deprecated FLAKY_HEALER_SUBPROC_ISOLATE_NET)
+    is read on every call, so flipping it mid-process — e.g. in a long-lived
+    gateway — takes effect; only the host-capability probe below is cached,
+    since the host's namespace support cannot change within a process.
     """
     if not config.subproc_isolate_net():
         return ()
