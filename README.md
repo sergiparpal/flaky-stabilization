@@ -190,3 +190,5 @@ silently passing the image.
 ## License
 
 MIT License. See `LICENSE`.
+
+Release history: see [`CHANGELOG.md`](CHANGELOG.md).
