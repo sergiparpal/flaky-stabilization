@@ -100,6 +100,14 @@ def _allow_private() -> bool:
 
 def ip_blocked(ip) -> bool:
     """True for an address we refuse to connect to (SSRF defence)."""
+    # Unwrap an IPv4-mapped IPv6 address (::ffff:a.b.c.d) and judge the embedded
+    # IPv4 address. On Python < 3.13 the IPv6 wrapper answers is_loopback /
+    # is_link_local as False for e.g. ::ffff:127.0.0.1 and ::ffff:169.254.169.254
+    # (only is_private catches them), so with the private-range opt-in enabled a
+    # mapped literal would reach loopback/metadata — exactly the ranges promised
+    # below to stay blocked regardless of the opt-in. 3.13 fixed the stdlib
+    # semantics; this keeps 3.11/3.12 equivalent.
+    ip = getattr(ip, "ipv4_mapped", None) or ip
     # Always block the SSRF-sensitive ranges: cloud metadata (169.254.169.254 is
     # link-local), loopback/localhost services, and unspecified/multicast/
     # reserved space. These stay blocked even when private ranges are permitted.

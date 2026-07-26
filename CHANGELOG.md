@@ -46,6 +46,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `flaky-stabilization/config.json`. The `migrate` command is exempt — it is
   supposed to read legacy data.
 
+### Security
+
+- Triage SSRF guard: `ip_blocked` now unwraps an IPv4-mapped IPv6 literal
+  (`::ffff:a.b.c.d`) and judges the embedded IPv4 address. On Python < 3.13
+  the mapped form answers `is_loopback`/`is_link_local` as `False`, so with
+  the private-range opt-in (`HERMES_CI_TRIAGE_ALLOW_PRIVATE` /
+  `triage.allow_private`) enabled, `https://[::ffff:127.0.0.1]/…` and
+  `https://[::ffff:169.254.169.254]/…` could reach loopback and cloud-metadata
+  addresses that are promised to stay blocked regardless of the opt-in.
+
 ### Fixed
 
 - Sandbox spec selection: both sandbox backends passed the target spec after a

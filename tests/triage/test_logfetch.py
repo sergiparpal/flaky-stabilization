@@ -193,6 +193,22 @@ def test_private_address_blocked_by_default(monkeypatch):
     assert safehttp.ip_blocked(ipaddress.ip_address("169.254.169.254")) is True
 
 
+def test_ipv4_mapped_ipv6_judged_as_embedded_ipv4(monkeypatch):
+    """An IPv4-mapped IPv6 literal (::ffff:a.b.c.d) must be judged as its
+    embedded IPv4 address: on Python < 3.13 the IPv6 wrapper answers
+    is_loopback/is_link_local as False, so with the private-range opt-in
+    enabled a mapped loopback/metadata literal would otherwise slip through
+    the always-blocked guarantee."""
+    import ipaddress
+
+    monkeypatch.setenv("HERMES_CI_TRIAGE_ALLOW_PRIVATE", "1")
+    assert safehttp.ip_blocked(ipaddress.ip_address("::ffff:127.0.0.1")) is True
+    assert safehttp.ip_blocked(ipaddress.ip_address("::ffff:169.254.169.254")) is True
+    # A mapped public address stays permitted (the unwrap must not over-block).
+    monkeypatch.delenv("HERMES_CI_TRIAGE_ALLOW_PRIVATE", raising=False)
+    assert safehttp.ip_blocked(ipaddress.ip_address("::ffff:93.184.216.34")) is False
+
+
 def test_guarded_connection_refuses_resolved_internal_ip(monkeypatch):
     """M2: connect-time IP vetting refuses a name that resolves to an internal
     address (closes the DNS-rebinding TOCTOU window)."""
