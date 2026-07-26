@@ -85,7 +85,9 @@ jobs:
       - name: Install toy-app fixture dependencies
         run: npm ci --prefix tests/healer/fixtures/toy-app
       - name: Run docker-marked sandbox tests
-        run: bash scripts/run_tests.sh tests/healer -- -m docker
+        # -vv: never truncate assertion reprs — a failing run's report embeds
+        # the container's stdout tail, which is the only diagnostic there is.
+        run: bash scripts/run_tests.sh tests/healer -- -m docker -vv
 
   build:
     name: Build wheel
