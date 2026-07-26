@@ -56,7 +56,10 @@ guide is for moving data and configuration from an existing installation.
 
 4. **Env vars are unchanged**: `GITHUB_TOKEN`, `JIRA_API_TOKEN`,
    `FLAKY_HEALER_*`, `HERMES_CI_TRIAGE_*`, `JIRA_BASE_URL`/`JIRA_EMAIL`,
-   `HERMES_JIRA_STRICT_REDACTION` all still work.
+   `HERMES_JIRA_STRICT_REDACTION` all still work. The legacy overrides
+   (`FLAKY_HEALER_*`, `HERMES_CI_TRIAGE_*`, `JIRA_BASE_URL`/`JIRA_EMAIL`,
+   `HERMES_JIRA_STRICT_REDACTION`) are **deprecated and will be removed at
+   1.0** — move them into `flaky-stabilization/config.json`.
 
 ## Configuration mapping
 
@@ -68,7 +71,8 @@ guide is for moving data and configuration from an existing installation.
 | ci-triage / healer env-only config | `triage` / `healer` sections (env still wins) |
 
 Precedence everywhere: env var > unified `config.json` section > legacy
-file (history only) > built-in default.
+file (history only) > built-in default. The legacy `test-history/config.json`
+precedence level is **deprecated and will be removed at 1.0**.
 
 ## Breaking changes (documented, accepted)
 

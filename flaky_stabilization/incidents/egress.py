@@ -14,6 +14,7 @@ import logging
 import os
 from typing import Any
 
+from ..common import deprecation
 from ..pii import redaction, scanner
 from .config import NAME
 
@@ -24,8 +25,11 @@ STRICT_REDACTION_ENV = "HERMES_JIRA_STRICT_REDACTION"
 
 
 def strict_enabled() -> bool:
-    return os.environ.get(STRICT_REDACTION_ENV, "").strip().lower() in (
-        "1", "true", "yes", "on")
+    raw = os.environ.get(STRICT_REDACTION_ENV, "").strip()
+    if raw:
+        deprecation.warn_env_once(
+            STRICT_REDACTION_ENV, "the `jira` section of flaky-stabilization/config.json")
+    return raw.lower() in ("1", "true", "yes", "on")
 
 
 def guard(text: str, where: str) -> str:

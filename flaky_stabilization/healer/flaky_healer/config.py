@@ -87,6 +87,22 @@ def _truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in ("1", "true", "yes", "on")
 
 
+def _warn_legacy_env(var: str, replacement: str) -> None:
+    """One-shot deprecation warning for a ``FLAKY_HEALER_*`` env override.
+
+    Imported lazily (like the unified config below) so the flat legacy import
+    context — where the package is unavailable — keeps working silently.
+    """
+    try:
+        from flaky_stabilization.common.deprecation import warn_env_once
+    except Exception:  # pragma: no cover — flat import context without the package
+        return
+    warn_env_once(var, replacement)
+
+
+_HEALER_SECTION = "the `healer` section of flaky-stabilization/config.json"
+
+
 def _unified_healer_config() -> dict:
     """The ``healer`` section of the unified flaky-stabilization config.json.
 
@@ -143,6 +159,9 @@ def data_dir(ctx=None) -> Path:
     """
     env = os.environ.get(ENV_DATA_DIR)
     if env:
+        _warn_legacy_env(
+            ENV_DATA_DIR,
+            "the default <hermes_home>/flaky-stabilization data directory")
         base = Path(env)
     else:
         hermes_home = getattr(ctx, "hermes_home", None) or os.environ.get("HERMES_HOME")
@@ -166,11 +185,18 @@ def _parse_burnin(raw: str) -> tuple[int, int] | None:
 
 def burnin() -> tuple[int, int]:
     """(reproduce_runs M, burn_in_runs N); FLAKY_HEALER_BURNIN='5:10' > config."""
-    for raw in (os.environ.get(ENV_BURNIN, ""), _cfg_str("burnin") or ""):
-        if raw:
-            parsed = _parse_burnin(raw)
-            if parsed is not None:
-                return parsed
+    raw = os.environ.get(ENV_BURNIN, "")
+    if raw:
+        parsed = _parse_burnin(raw)
+        if parsed is not None:
+            _warn_legacy_env(
+                ENV_BURNIN, "the `healer.burnin` key in flaky-stabilization/config.json")
+            return parsed
+    raw = _cfg_str("burnin") or ""
+    if raw:
+        parsed = _parse_burnin(raw)
+        if parsed is not None:
+            return parsed
     return DEFAULT_BURNIN
 
 
@@ -179,31 +205,59 @@ def github_token() -> str | None:
 
 
 def github_api_base() -> str:
-    return os.environ.get(ENV_GITHUB_API, "https://api.github.com").rstrip("/")
+    env = os.environ.get(ENV_GITHUB_API)
+    if env is not None:
+        _warn_legacy_env(ENV_GITHUB_API, _HEALER_SECTION)
+        return env.rstrip("/")
+    return "https://api.github.com"
 
 
 def sandbox_backend() -> str:
     """'auto' | 'docker' | 'subprocess'."""
     env = (os.environ.get(ENV_SANDBOX) or "").strip().lower()
-    return env or (_cfg_str("sandbox") or "auto").lower()
+    if env:
+        _warn_legacy_env(
+            ENV_SANDBOX, "the `healer.sandbox` key in flaky-stabilization/config.json")
+        return env
+    return (_cfg_str("sandbox") or "auto").lower()
 
 
 def docker_image() -> str:
-    return os.environ.get(ENV_DOCKER_IMAGE) or _cfg_str("docker_image") or DEFAULT_DOCKER_IMAGE
+    env = os.environ.get(ENV_DOCKER_IMAGE)
+    if env:
+        _warn_legacy_env(
+            ENV_DOCKER_IMAGE, "the `healer.docker_image` key in flaky-stabilization/config.json")
+        return env
+    return _cfg_str("docker_image") or DEFAULT_DOCKER_IMAGE
 
 
 def git_tool() -> str:
     """Host tool name used to run git commands through the approval pipeline."""
-    return os.environ.get(ENV_GIT_TOOL) or _cfg_str("git_tool") or "terminal"
+    env = os.environ.get(ENV_GIT_TOOL)
+    if env:
+        _warn_legacy_env(
+            ENV_GIT_TOOL, "the `healer.git_tool` key in flaky-stabilization/config.json")
+        return env
+    return _cfg_str("git_tool") or "terminal"
 
 
 def pr_tool() -> str:
     """Host tool name used to open a pull request through the approval pipeline."""
-    return os.environ.get(ENV_PR_TOOL) or _cfg_str("pr_tool") or "create_pull_request"
+    env = os.environ.get(ENV_PR_TOOL)
+    if env:
+        _warn_legacy_env(
+            ENV_PR_TOOL, "the `healer.pr_tool` key in flaky-stabilization/config.json")
+        return env
+    return _cfg_str("pr_tool") or "create_pull_request"
 
 
 def base_branch() -> str:
-    return os.environ.get(ENV_BASE_BRANCH) or _cfg_str("base_branch") or "main"
+    env = os.environ.get(ENV_BASE_BRANCH)
+    if env:
+        _warn_legacy_env(
+            ENV_BASE_BRANCH, "the `healer.base_branch` key in flaky-stabilization/config.json")
+        return env
+    return _cfg_str("base_branch") or "main"
 
 
 def subproc_pass_env() -> list[str]:
@@ -213,7 +267,10 @@ def subproc_pass_env() -> list[str]:
     allowlist exists for hosts where browsers need e.g. LD_LIBRARY_PATH.
     """
     raw = os.environ.get(ENV_SUBPROC_PASS, "")
-    return [v.strip() for v in raw.split(",") if v.strip()]
+    names = [v.strip() for v in raw.split(",") if v.strip()]
+    if names:
+        _warn_legacy_env(ENV_SUBPROC_PASS, _HEALER_SECTION)
+    return names
 
 
 def allow_subprocess_pr() -> bool:
@@ -224,6 +281,9 @@ def allow_subprocess_pr() -> bool:
     """
     raw = os.environ.get(ENV_ALLOW_SUBPROC_PR)
     if raw is not None and raw.strip():
+        _warn_legacy_env(
+            ENV_ALLOW_SUBPROC_PR,
+            "the `healer.allow_subprocess_pr` key in flaky-stabilization/config.json")
         return _truthy(raw)
     value = _unified_healer_config().get("allow_subprocess_pr")
     return value if isinstance(value, bool) else False
@@ -235,7 +295,11 @@ def subproc_isolate_net() -> bool:
     webServer). Best-effort and probe-gated; on by default, set to 0/false to
     disable on hosts whose tests legitimately reach external services.
     """
-    return _truthy(os.environ.get(ENV_SUBPROC_ISOLATE_NET, "1"))
+    raw = os.environ.get(ENV_SUBPROC_ISOLATE_NET)
+    if raw is not None:
+        _warn_legacy_env(ENV_SUBPROC_ISOLATE_NET, _HEALER_SECTION)
+        return _truthy(raw)
+    return True
 
 
 def run_concurrency() -> int:
@@ -252,8 +316,12 @@ def run_concurrency() -> int:
       isolation off/unavailable they would collide on the webServer port, so
       keep this at 1 there.
     """
+    raw = os.environ.get(ENV_RUN_CONCURRENCY)
+    if raw is None:
+        return 1
+    _warn_legacy_env(ENV_RUN_CONCURRENCY, _HEALER_SECTION)
     try:
-        return max(1, int(os.environ.get(ENV_RUN_CONCURRENCY, "1")))
+        return max(1, int(raw))
     except ValueError:
         return 1
 
@@ -270,4 +338,7 @@ def hardlink_copy() -> bool:
     the user's real project); ``node_modules`` is never mutated at run time.
     Enable on hosts where the project tree lives on a single filesystem.
     """
-    return _truthy(os.environ.get(ENV_HARDLINK_COPY))
+    raw = os.environ.get(ENV_HARDLINK_COPY)
+    if raw:
+        _warn_legacy_env(ENV_HARDLINK_COPY, _HEALER_SECTION)
+    return _truthy(raw)

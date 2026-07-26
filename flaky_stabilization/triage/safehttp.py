@@ -33,6 +33,8 @@ import ssl
 import urllib.request
 from urllib.parse import urlsplit
 
+from ..common import deprecation
+
 # Opt-in to permit RFC1918/private fetch destinations (self-hosted / GHE).
 _ALLOW_PRIVATE_ENV = "HERMES_CI_TRIAGE_ALLOW_PRIVATE"
 
@@ -85,6 +87,8 @@ def _allow_private() -> bool:
     # deliberately not shared (dependency direction forbids reuse).
     raw = os.environ.get(_ALLOW_PRIVATE_ENV, "").strip()
     if raw:
+        deprecation.warn_env_once(
+            _ALLOW_PRIVATE_ENV, "`triage.allow_private` in flaky-stabilization/config.json")
         return raw.lower() in ("1", "true", "yes", "on")
     try:
         from .. import config as unified_config

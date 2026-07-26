@@ -36,6 +36,7 @@ from collections import deque
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from ..common import deprecation
 from . import safehttp
 from .safehttp import LogFetchError  # re-export: public API + local raises
 
@@ -98,6 +99,8 @@ def _env_or_config_list(env_var: str, config_key: str, sep: str) -> list[str]:
     """
     raw = os.environ.get(env_var, "")
     if raw.strip():
+        deprecation.warn_env_once(
+            env_var, f"`triage.{config_key}` in flaky-stabilization/config.json")
         return raw.split(sep)
     cfg_val = _config_triage().get(config_key)
     if isinstance(cfg_val, str):

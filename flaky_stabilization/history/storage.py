@@ -11,6 +11,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from ..common import deprecation
 from . import domain
 
 # Module-level singletons. Opened on first use; closed at process exit by
@@ -155,7 +156,17 @@ def get_config() -> dict[str, Any]:
                 user_cfg = loaded
         except Exception:
             user_cfg = {}
-    _config = {**DEFAULT_CONFIG, **user_cfg, **_unified_overrides()}
+    overrides = _unified_overrides()
+    if any(key not in overrides for key in user_cfg):
+        # The legacy file supplies at least one key the unified config does not
+        # override — that key's lookup is won by the legacy precedence level.
+        deprecation.warn_once(
+            "config:test-history/config.json",
+            "DEPRECATED: the legacy test-history/config.json precedence level "
+            "is a legacy fallback removed in 1.0; use the `history` section of "
+            "flaky-stabilization/config.json.",
+        )
+    _config = {**DEFAULT_CONFIG, **user_cfg, **overrides}
     return _config
 
 

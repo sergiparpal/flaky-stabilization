@@ -29,6 +29,7 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
+from ..common import deprecation
 from . import jira_client as jira_mod
 
 logger = logging.getLogger(__name__)
@@ -197,11 +198,23 @@ class IncidentsConfig:
 
     def base_url(self) -> str:
         """Configured base URL, falling back to the ``JIRA_BASE_URL`` env var."""
-        return self.jira_base_url or os.environ.get("JIRA_BASE_URL") or ""
+        if self.jira_base_url:
+            return self.jira_base_url
+        env = os.environ.get("JIRA_BASE_URL") or ""
+        if env:
+            deprecation.warn_env_once(
+                "JIRA_BASE_URL", "`jira.base_url` in flaky-stabilization/config.json")
+        return env
 
     def email(self) -> str:
         """Configured account email, falling back to the ``JIRA_EMAIL`` env var."""
-        return self.jira_email or os.environ.get("JIRA_EMAIL") or ""
+        if self.jira_email:
+            return self.jira_email
+        env = os.environ.get("JIRA_EMAIL") or ""
+        if env:
+            deprecation.warn_env_once(
+                "JIRA_EMAIL", "`jira.email` in flaky-stabilization/config.json")
+        return env
 
     def effective_db_path(self, hermes_home: str) -> str:
         """Resolve the SQLite index path.

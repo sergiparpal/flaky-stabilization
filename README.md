@@ -89,8 +89,10 @@ require_pii_gate true — never set false in production).
 Precedence: env var > `config.json` section > (for `history` only) the
 legacy `test-history/config.json` > built-in default. Legacy env vars keep
 working as overrides: `FLAKY_HEALER_*`, `HERMES_CI_TRIAGE_*`,
-`JIRA_BASE_URL`/`JIRA_EMAIL`, `HERMES_JIRA_STRICT_REDACTION`. Secrets live
-**only** in env: `GITHUB_TOKEN`, `JIRA_API_TOKEN`.
+`JIRA_BASE_URL`/`JIRA_EMAIL`, `HERMES_JIRA_STRICT_REDACTION`. These legacy
+env overrides and the legacy `test-history/config.json` precedence level are
+**deprecated and will be removed at 1.0** (each use logs one warning per
+process). Secrets live **only** in env: `GITHUB_TOKEN`, `JIRA_API_TOKEN`.
 
 The PII gate is intentionally fail-closed: evidence must be both `clean` and
 `complete`. A scan that reaches a file, traversal, byte, finding, or time

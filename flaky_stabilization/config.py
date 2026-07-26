@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import Any
 
 from . import paths
+from .common import deprecation
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,8 @@ def _apply_env_overrides(cfg: dict[str, dict[str, Any]]) -> None:
         raw = os.environ.get(var)
         if raw is None or raw == "":
             continue
+        deprecation.warn_env_once(
+            var, f"`{section}.{key}` in flaky-stabilization/config.json")
         default = DEFAULTS[section][key]
         if isinstance(default, bool):
             cfg[section][key] = raw.strip().lower() in _TRUTHY
