@@ -209,16 +209,22 @@ class TestLogfetchUrlLeak:
 
 
 class TestSandboxArgTermination:
-    def test_docker_command_terminates_options_before_test_id(self):
+    def test_docker_command_refuses_flag_shaped_test_id(self):
+        # The audit's intent: a flag-shaped test_id must never be parsed as an
+        # option. The original `--` terminator turned out to break playwright's
+        # positional spec filter (the whole suite ran), so the guard is now an
+        # outright refusal in spec_arg(); a legitimate spec stays a plain
+        # trailing positional with every real option before it.
         pytest.importorskip("flaky_stabilization.healer.flaky_healer.sandbox.docker")
+        from flaky_stabilization.healer.flaky_healer.sandbox.base import SandboxError
         from flaky_stabilization.healer.flaky_healer.sandbox.docker import (
             DockerSandbox,
         )
+        with pytest.raises(SandboxError, match="flag-shaped"):
+            DockerSandbox(image="img").build_command(pathlib.Path("."),
+                                                     "--reporter=evil", "c")
         cmd = DockerSandbox(image="img").build_command(pathlib.Path("."),
-                                                       "--reporter=evil", "c")
-        # `--` must directly precede the (flag-shaped) test_id, and every real
-        # option must come before `--`.
-        assert "--" in cmd
-        dashdash = cmd.index("--")
-        assert cmd[dashdash + 1] == "--reporter=evil"
-        assert cmd.index("--reporter=line") < dashdash  # our own flags precede it
+                                                       "t.spec.ts", "c")
+        assert "--" not in cmd
+        assert cmd[-1] == "t.spec.ts"
+        assert "--reporter=line" in cmd
