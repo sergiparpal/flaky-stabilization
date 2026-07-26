@@ -2,6 +2,13 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .coverage
+.ruff_cache/
+
+# Build artifacts: `pip wheel .` / `pip install -e .` write these into the repo
+# root, and AGENTS.md documents both as standard dev commands.
+build/
+dist/
+*.egg-info/
 
 # Runtime artifacts left by the burgess knowledge-graph tooling when run in this
 # folder — not part of this plugin. The .ckpt was committed by accident in the

@@ -1,5 +1,5 @@
 name: flaky-stabilization
-version: 0.1.2
+version: 0.2.0
 description: "Unified flaky-test stabilization pipeline: failure history, flaky detection,
   CI triage, sandboxed healing with PR flow, bug-report structuring, PII gating, and a local
   Jira incident index — one plugin, one state store."

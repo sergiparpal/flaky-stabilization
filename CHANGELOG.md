@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-07-26
+
+Repository rename, CI, and the legacy-config deprecation path.
+
+**Breaking for existing installs**: the plugin was renamed
+`hermes-flaky-stabilization` → `flaky-stabilization`. Reinstall and re-enable
+under the new name — the plugin id in `plugins.enabled`, the plugin directory,
+the qualified skill name, the `pip install` name, and the import path all
+changed. No data migration is needed; `history.db` and `state.db` are
+untouched. See `MIGRATION.md` and `docs/DECISIONS.md`.
+
 ### Added
 
 - GitHub Actions CI: ruff lint, the offline test suite on Python 3.11/3.12/3.13
@@ -196,7 +207,8 @@ First release.
 - Cron installer (`install-cron`), unified `config.json`, and the fail-closed
   PII gate over evidence files.
 
-[Unreleased]: https://github.com/sergiparpal/flaky-stabilization/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/sergiparpal/flaky-stabilization/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/sergiparpal/flaky-stabilization/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/sergiparpal/flaky-stabilization/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/sergiparpal/flaky-stabilization/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/sergiparpal/flaky-stabilization/releases/tag/v0.1.0
