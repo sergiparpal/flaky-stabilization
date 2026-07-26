@@ -274,7 +274,7 @@ def read_local(path: str) -> str:
         raise LogFetchError(
             f"Could not stat log file: {_safe_path(path)} ({type(exc).__name__})",
             _PERMS_HINT,
-        )
+        ) from exc
     if size > MAX_LOG_BYTES:
         os.close(fd)
         raise LogFetchError(
@@ -288,7 +288,7 @@ def read_local(path: str) -> str:
         raise LogFetchError(
             f"Could not read log file: {_safe_path(path)} ({type(exc).__name__})",
             _PERMS_HINT,
-        )
+        ) from exc
     return data.decode("utf-8", errors="replace")
 
 
@@ -346,27 +346,27 @@ def _fetch_remote(url: str, *, timeout: float = DEFAULT_TIMEOUT) -> tuple[str, b
                 f"Authentication failed (HTTP {exc.code}) fetching {safehttp.safe_url(url)}.",
                 f"Set the {TOKEN_ENV_VAR} environment variable to a token with "
                 f"read access to the CI logs, then retry.",
-            )
+            ) from exc
         if exc.code == 404:
             raise LogFetchError(
                 f"Log not found (HTTP 404): {safehttp.safe_url(url)}",
                 "Check the URL — the run/job log may have expired or rotated.",
-            )
+            ) from exc
         raise LogFetchError(
             f"HTTP error {exc.code} fetching {safehttp.safe_url(url)}.",
             "Verify the URL and your network access.",
-        )
-    except TimeoutError:
-        raise _timeout_error(url, timeout)
+        ) from exc
+    except TimeoutError as exc:
+        raise _timeout_error(url, timeout) from exc
     except (urllib.error.URLError, ssl.SSLError) as exc:
         reason = getattr(exc, "reason", exc)
         if isinstance(reason, (TimeoutError, socket.timeout)):
-            raise _timeout_error(url, timeout)
+            raise _timeout_error(url, timeout) from exc
         raise LogFetchError(
             f"Network error fetching {safehttp.safe_url(url)} "
             f"({type(reason).__name__}).",
             "Check connectivity and that the host is reachable.",
-        )
+        ) from exc
 
 
 def fetch(target: str, *, timeout: float = DEFAULT_TIMEOUT) -> str:

@@ -224,7 +224,9 @@ def _validated_finder(
 find_email = _validated_finder("email", _EMAIL_RE, lambda m: True)
 find_credit_card = _validated_finder("credit_card", _CARD_RE, lambda m: _card_ok(m.group(0)))
 find_iban = _validated_finder("iban", _IBAN_RE, lambda m: iban_ok(m.group(0)))
-find_spanish_dni_nie = _validated_finder("spanish_dni_nie", _DNI_RE, lambda m: dni_nie_ok(m.group(0)))
+find_spanish_dni_nie = _validated_finder(
+    "spanish_dni_nie", _DNI_RE, lambda m: dni_nie_ok(m.group(0))
+)
 
 # us_ssn and us_itin share _SSN_LIKE_RE and are disjoint by construction:
 # _ssn_ok rejects areas >= 900, which is exactly what _itin_ok requires. That

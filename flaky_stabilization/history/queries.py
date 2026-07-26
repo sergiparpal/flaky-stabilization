@@ -212,7 +212,9 @@ def test_failure_lookup(conn, test_id: str, limit: int = domain.DEFAULT_LIMIT,
     """
     cfg = config or {}
     test_id = _validate_str(test_id, "test_id")
-    limit = _coerce_int(limit, default=domain.DEFAULT_LIMIT, lo=domain.MIN_LIMIT, hi=domain.MAX_LIMIT)
+    limit = _coerce_int(
+        limit, default=domain.DEFAULT_LIMIT, lo=domain.MIN_LIMIT, hi=domain.MAX_LIMIT
+    )
     max_trace = _coerce_int(cfg.get("max_stack_trace_chars", domain.DEFAULT_MAX_STACK_TRACE_CHARS),
                             default=domain.DEFAULT_MAX_STACK_TRACE_CHARS, lo=0, hi=None)
 
@@ -287,7 +289,8 @@ def test_failure_lookup(conn, test_id: str, limit: int = domain.DEFAULT_LIMIT,
 _MODULE_CORE = (
     "SELECT tc.name AS name, tc.file_path AS file_path, tc.classname AS classname, "
     "       COUNT(*) AS total_runs, "
-    "       SUM(CASE WHEN tc.status IN " + domain.FAIL_STATUSES_SQL + " THEN 1 ELSE 0 END) AS failure_count, "
+    "       SUM(CASE WHEN tc.status IN " + domain.FAIL_STATUSES_SQL + " THEN 1 ELSE 0 END)"
+    "           AS failure_count, "
     "       MAX(CASE WHEN tc.status IN " + domain.FAIL_STATUSES_SQL + " "
     "                THEN datetime(" + _ET_TR + ") END) AS last_failure_at "
     "FROM test_cases tc JOIN test_runs tr ON tr.id = tc.run_id "

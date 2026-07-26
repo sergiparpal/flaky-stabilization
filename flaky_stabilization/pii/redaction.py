@@ -112,7 +112,8 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # AWS access key ids.
     (_compile(r"\bAKIA[0-9A-Z]{16}\b"), SECRET_TOKEN),
     # Private key blocks.
-    (_compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----"), SECRET_TOKEN),
+    (_compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?"
+         r"-----END [A-Z ]*PRIVATE KEY-----"), SECRET_TOKEN),
     # Labelled secrets: api_key=..., token: ..., password = ...
     # The value runs to the end of the line so multi-word / space-containing
     # secrets ("password: hunter two three") are redacted whole rather than
@@ -167,7 +168,9 @@ _PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (_compile(r"(?<![\w.])\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}\b"), PHONE_TOKEN),
 
     # --- Labelled personal names ----------------------------------------
-    (_compile(r"(?i)\b(reporter|reported by|assignee|assigned to|owner|contact|requested by|requester|caller|created by|creator)\b\s*[:\-]?\s+([A-Z][\w'\-]+(?:\s+[A-Z][\w'\-]+){0,3})"),
+    (_compile(r"(?i)\b(reporter|reported by|assignee|assigned to|owner|contact"
+         r"|requested by|requester|caller|created by|creator)\b"
+         r"\s*[:\-]?\s+([A-Z][\w'\-]+(?:\s+[A-Z][\w'\-]+){0,3})"),
         lambda m: f"{m.group(1)}: {NAME_TOKEN}"),
 ]
 
@@ -187,7 +190,9 @@ _CONTROL_CHARS_RE = _compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 # classic injection trying to forge a conversation turn. Neutralise only the
 # delimiter (turn the ':' into ' -') so the text is preserved but can no longer
 # read as a role boundary.
-_ROLE_MARKER_RE = _compile(r"(?im)^([ \t]*)(system|assistant|user|developer|human|ai|tool)([ \t]*):")
+_ROLE_MARKER_RE = _compile(
+    r"(?im)^([ \t]*)(system|assistant|user|developer|human|ai|tool)([ \t]*):"
+)
 
 
 def _coerce_str(text: Any) -> str:

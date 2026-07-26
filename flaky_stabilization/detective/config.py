@@ -90,7 +90,9 @@ def _coerce_config(cfg: dict) -> dict:
     for key in ("deliver", "schedule", "report_scope"):
         out[key] = _as_str(out.get(key), DEFAULT_CONFIG[key])
     raw_path = out.get("test_history_db_path")
-    out["test_history_db_path"] = raw_path if (raw_path is None or isinstance(raw_path, str)) else None
+    out["test_history_db_path"] = (
+        raw_path if (raw_path is None or isinstance(raw_path, str)) else None
+    )
     return out
 
 

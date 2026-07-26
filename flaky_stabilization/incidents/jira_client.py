@@ -39,7 +39,9 @@ Transport = Callable[[str, str, dict[str, str], bytes | None, float], tuple[int,
 
 DEFAULT_TIMEOUT = 10.0
 MAX_RESPONSE_BYTES = 10 * 1024 * 1024
-DEFAULT_SEARCH_FIELDS = ["summary", "status", "reporter", "assignee", "created", "updated", "description"]
+DEFAULT_SEARCH_FIELDS = [
+    "summary", "status", "reporter", "assignee", "created", "updated", "description"
+]
 
 # Explicit, verifying TLS context (cert chain + hostname). urllib already uses
 # a verifying context for HTTPS by default; pinning it here makes the security

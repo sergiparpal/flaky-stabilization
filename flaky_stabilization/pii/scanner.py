@@ -269,7 +269,9 @@ def _safe_display_path(full: str, real_target: str, is_file_target: bool) -> str
     return _mask_pii(relative)
 
 
-def _display_or_placeholder(full: str, real_target: str, is_file_target: bool, fallback: str) -> str:
+def _display_or_placeholder(
+    full: str, real_target: str, is_file_target: bool, fallback: str
+) -> str:
     """``_safe_display_path``, but never raises: if masking the name is what
     failed, no part of that name is known safe to print."""
     try:
@@ -349,7 +351,7 @@ def _findings_for_file(
         return [], capped
     return [
         {"file": display, "line": line, "type": f.type, "preview": f.preview}
-        for f, line in zip(found, _line_numbers(text, [f.start for f in found]))
+        for f, line in zip(found, _line_numbers(text, [f.start for f in found]), strict=True)
     ], capped
 
 
