@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI: ruff lint, the offline test suite on Python 3.11/3.12/3.13
   with coverage enforced at 85%, and a wheel build with an archive integrity
   check. E2E-marked tests are excluded from the offline CI runs.
+- CI `docker-tests` job running the docker-marked sandbox tests against a real
+  Docker daemon on ubuntu runners, plus new hardening tests: network egress
+  blocked inside the container, the original project tree untouched after a
+  sandboxed run, and docker infra exit codes (125/126/127) surfacing as
+  `SandboxError` rather than fabricated test failures.
+- Wheel smoke-install in the CI build job: the built wheel is installed and
+  `flaky_stabilization.register` imported, so packaging errors fail the build
+  instead of a user install.
+- This `CHANGELOG.md`, backfilled for 0.1.0–0.1.2 and linked from the README.
+- `docs/DECISIONS.md` entry H1: the healer is the plugin's differentiator —
+  core, will grow, with docker CI coverage growing alongside it.
 
 ### Changed
 
@@ -19,6 +30,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   GitHub slug, plugin manifest name, distribution name, and import package now
   all agree. Breaking for existing installs — reinstall and re-enable under the
   new name (no data migration needed; see `docs/DECISIONS.md`).
+- README restructured to lead with the default install: quickstart and
+  default-install trust facts (stdlib-only runtime, token-gated tools,
+  `jira.enable_write: false`, `suggest` heal mode, docker→subprocess fallback,
+  fail-closed PII gate) moved to the first screen; the seven-plugin migration
+  story moved below the fold. No facts removed.
+
+### Deprecated
+
+- The legacy env overrides (`FLAKY_HEALER_*`, `HERMES_CI_TRIAGE_*`,
+  `JIRA_BASE_URL`/`JIRA_EMAIL`, `HERMES_JIRA_STRICT_REDACTION`) and the legacy
+  `test-history/config.json` precedence level: each use now logs one
+  deprecation warning per process (logger `flaky_stabilization.deprecation`);
+  all of them will be removed at 1.0. Move settings into
+  `flaky-stabilization/config.json`. The `migrate` command is exempt — it is
+  supposed to read legacy data.
+
+### Fixed
+
+- Cleared the suppressed lint debt in source packages (`B904` exception
+  chaining, one `B905` `zip(strict=)`, `E501` overlong lines) and dropped the
+  stale `flaky_stabilization/*` per-file-ignores from `pyproject.toml`;
+  `tests/*` ignores for ported test suites remain.
 
 ## [0.1.2] — 2026-07-20
 
