@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 _ALIAS = "hermes_test_history"
-_REAL = "hermes_flaky_stabilization.history"
+_REAL = "flaky_stabilization.history"
 
 _pkg = importlib.import_module(_REAL)
 sys.modules.setdefault(_ALIAS, _pkg)

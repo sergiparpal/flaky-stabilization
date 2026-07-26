@@ -20,7 +20,7 @@ FTS5 is used for fuzzy lookup when available and falls back to ``LIKE``
 otherwise — detected at open time, never assumed.
 
 The base-table schema (``triage_patterns`` + its FTS mirror) and the migration
-ladder are owned by :mod:`hermes_flaky_stabilization.storage.state`, the single
+ladder are owned by :mod:`flaky_stabilization.storage.state`, the single
 schema owner for ``state.db``; this module used to re-declare that DDL, which
 meant a future ``state`` migration would never reach a DB opened here. It now
 delegates schema creation to ``state.ensure_schema``. Hermes-free at import

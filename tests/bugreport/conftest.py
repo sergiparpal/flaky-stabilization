@@ -14,7 +14,7 @@ import sys
 import pytest
 
 _ALIAS = "hermes_bug_report_improver"
-_REAL = "hermes_flaky_stabilization.bugreport"
+_REAL = "flaky_stabilization.bugreport"
 
 _pkg = importlib.import_module(_REAL)
 sys.modules.setdefault(_ALIAS, _pkg)

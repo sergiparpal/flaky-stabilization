@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-PKG = "hermes_flaky_stabilization"
+PKG = "flaky_stabilization"
 PKG_ROOT = Path(__file__).resolve().parent.parent / PKG
 
 STAGES = frozenset({

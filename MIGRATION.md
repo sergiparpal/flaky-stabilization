@@ -1,6 +1,6 @@
 # Migrating from the seven legacy plugins
 
-`hermes-flaky-stabilization` absorbs `hermes-test-history`,
+`flaky-stabilization` absorbs `hermes-test-history`,
 `hermes-flaky-detective`, `hermes-ci-triage`, `hermes-flaky-healer`,
 `hermes-bug-report-improver`, `hermes-masking-validator`, and
 `hermes-jira-incidents`. All 13 legacy tools keep their names, schemas, and
@@ -14,8 +14,8 @@ guide is for moving data and configuration from an existing installation.
    disabled first:
 
    ```bash
-   hermes plugins install sergiparpal/hermes-flaky-stabilization
-   hermes plugins enable hermes-flaky-stabilization
+   hermes plugins install sergiparpal/flaky-stabilization
+   hermes plugins enable flaky-stabilization
    hermes plugins disable hermes-test-history hermes-flaky-detective \
      hermes-ci-triage hermes-flaky-healer hermes-bug-report-improver \
      hermes-masking-validator
@@ -73,7 +73,7 @@ file (history only) > built-in default.
 ## Breaking changes (documented, accepted)
 
 * **Skill qualifier**: `hermes-flaky-healer:flaky-healer` →
-  `hermes-flaky-stabilization:flaky-healer`.
+  `flaky-stabilization:flaky-healer`.
 * **Healer data dir default** moved from `plugins-data/hermes-flaky-healer/`
   to `flaky-stabilization/` (the `FLAKY_HEALER_DATA_DIR` override preserves
   any old location); the healer DB is the consolidated `state.db`.

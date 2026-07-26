@@ -48,7 +48,7 @@ def test_plugin_loads_and_registers_full_surface(hermes_home):
 
 def test_broken_submodule_fails_the_load_naming_the_module(hermes_home):
     dest = install_plugin(hermes_home)
-    (dest / "hermes_flaky_stabilization" / "pii" / "scanner.py").write_text(
+    (dest / "flaky_stabilization" / "pii" / "scanner.py").write_text(
         "import totally_missing_module_xyz\n", encoding="utf-8"
     )
     out = run_discovery(hermes_home)

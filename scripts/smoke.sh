@@ -25,13 +25,13 @@ trap 'rm -rf "$HERMES_HOME"' EXIT
 echo "smoke profile: $HERMES_HOME"
 
 # Install the plugin into the disposable profile and opt it in.
-PLUG="$HERMES_HOME/plugins/hermes-flaky-stabilization"
+PLUG="$HERMES_HOME/plugins/flaky-stabilization"
 mkdir -p "$PLUG"
 cp "$ROOT/plugin.yaml" "$ROOT/__init__.py" "$PLUG/"
-cp -r "$ROOT/hermes_flaky_stabilization" "$ROOT/skills" "$PLUG/"
+cp -r "$ROOT/flaky_stabilization" "$ROOT/skills" "$PLUG/"
 mkdir -p "$PLUG/scripts" && cp "$ROOT"/scripts/*.sh "$PLUG/scripts/"
 find "$PLUG" -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
-printf 'plugins:\n  enabled:\n    - hermes-flaky-stabilization\n' > "$HERMES_HOME/config.yaml"
+printf 'plugins:\n  enabled:\n    - flaky-stabilization\n' > "$HERMES_HOME/config.yaml"
 
 # Seed one legacy DB so `migrate` has something to copy.
 python3 - "$HERMES_HOME" <<'EOF'
@@ -73,7 +73,7 @@ from tools.registry import registry
 
 pm = PluginManager()
 pm.discover_and_load()
-loaded = pm._plugins["hermes-flaky-stabilization"]
+loaded = pm._plugins["flaky-stabilization"]
 assert loaded.enabled, f"plugin failed to load: {loaded.error!r}"
 print(f"[1] plugin loaded: {len(loaded.tools_registered)} tools, "
       f"hooks={sorted(pm._hooks)}")
@@ -125,7 +125,7 @@ handler = registry.get_entry("stabilize_test_failure").handler
 envelope = json.loads(handler({"log_url_or_path": str(log), "project": "smoke"}))
 assert envelope["success"] is True
 category = envelope["stage_results"]["triage"]["category"]
-from hermes_flaky_stabilization.triage import taxonomy
+from flaky_stabilization.triage import taxonomy
 assert category in taxonomy.TAXONOMY, category
 print(f"[5] pipeline envelope (outcome={envelope['outcome']}, "
       f"triage category={category}):")

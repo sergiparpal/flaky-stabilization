@@ -300,7 +300,7 @@ def status_text() -> str:
     from . import paths
 
     return "\n".join([
-        f"hermes-flaky-stabilization @ {paths.get_data_dir()}",
+        f"flaky-stabilization @ {paths.get_data_dir()}",
         *_state_db_lines(),
         *_history_db_lines(),
         *_config_lines(),

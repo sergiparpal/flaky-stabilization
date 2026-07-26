@@ -23,7 +23,7 @@ if _TESTS_DIR not in sys.path:
     sys.path.insert(0, _TESTS_DIR)
 
 _ALIAS = "hermes_flaky_detective"
-_REAL = "hermes_flaky_stabilization.detective"
+_REAL = "flaky_stabilization.detective"
 
 _pkg = importlib.import_module(_REAL)
 sys.modules.setdefault(_ALIAS, _pkg)

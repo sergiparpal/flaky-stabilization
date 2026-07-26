@@ -349,7 +349,7 @@ class TestConfigSecurity:
     def test_no_placeholder_default_base_url(self, provider):
         # Unified config owns the defaults now (Appendix B): base_url has no
         # placeholder default, so credentials can never go to a wrong host.
-        from hermes_flaky_stabilization import config as unified_config
+        from flaky_stabilization import config as unified_config
         assert unified_config.DEFAULTS["jira"]["base_url"] == ""
 
 

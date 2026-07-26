@@ -62,7 +62,7 @@ jobs:
       - name: Run offline tests with coverage gate
         run: >-
           bash scripts/run_tests.sh --
-          --cov=hermes_flaky_stabilization
+          --cov=flaky_stabilization
           --cov-fail-under=85
 
   build:

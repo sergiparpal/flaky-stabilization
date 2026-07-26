@@ -64,7 +64,7 @@ def legacy_fd():
 
 @pytest.fixture
 def unified_th():
-    from hermes_flaky_stabilization import history
+    from flaky_stabilization import history
 
     history.storage.reset_for_tests()
     yield history
@@ -146,7 +146,7 @@ def seeded_home(profile_env, legacy_th, unified_th):
 ])
 def test_test_failure_lookup_parity(seeded_home, legacy_th, unified_th, params):
     legacy = json.loads(legacy_th._handle_test_failure_lookup(dict(params)))
-    unified_pkg = importlib.import_module("hermes_flaky_stabilization.history")
+    unified_pkg = importlib.import_module("flaky_stabilization.history")
     unified = json.loads(unified_pkg._handle_test_failure_lookup(dict(params)))
     assert unified == legacy
 
@@ -162,7 +162,7 @@ def test_module_failure_history_parity_explicit_since(seeded_home, legacy_th,
     since = (seeded_home - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S")
     call = {**params, "since": since}
     legacy = json.loads(legacy_th._handle_module_failure_history(dict(call)))
-    unified_pkg = importlib.import_module("hermes_flaky_stabilization.history")
+    unified_pkg = importlib.import_module("flaky_stabilization.history")
     unified = json.loads(unified_pkg._handle_module_failure_history(dict(call)))
     assert _normalize_last_failure_at(unified) == _normalize_last_failure_at(legacy)
 
@@ -170,7 +170,7 @@ def test_module_failure_history_parity_explicit_since(seeded_home, legacy_th,
 def test_module_failure_history_parity_default_since(seeded_home, legacy_th, unified_th):
     call = {"path": "src/shop/"}
     legacy = json.loads(legacy_th._handle_module_failure_history(dict(call)))
-    unified_pkg = importlib.import_module("hermes_flaky_stabilization.history")
+    unified_pkg = importlib.import_module("flaky_stabilization.history")
     unified = json.loads(unified_pkg._handle_module_failure_history(dict(call)))
     assert _mask(_normalize_last_failure_at(unified), ("window_start",)) == _mask(
         _normalize_last_failure_at(legacy), ("window_start",)
@@ -202,12 +202,12 @@ def _mask_verdict(payload: dict, *, legacy: bool) -> dict:
     "",                           # validation error
 ])
 def test_is_flaky_parity(seeded_home, legacy_fd, unified_th, test_id):
-    from hermes_flaky_stabilization import detective as unified_fd
+    from flaky_stabilization import detective as unified_fd
 
     legacy_storage = importlib.import_module("hermes-flaky-detective.storage")
     legacy_scan = importlib.import_module("hermes-flaky-detective.scan")
-    from hermes_flaky_stabilization.detective import scan as unified_scan
-    from hermes_flaky_stabilization.detective import storage as unified_storage
+    from flaky_stabilization.detective import scan as unified_scan
+    from flaky_stabilization.detective import storage as unified_storage
 
     db_path = unified_th.storage.get_db_path()
     now = datetime.now(UTC)

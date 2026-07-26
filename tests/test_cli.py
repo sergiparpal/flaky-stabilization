@@ -14,7 +14,7 @@ import pytest
 
 
 def _make_parser():
-    from hermes_flaky_stabilization import cli
+    from flaky_stabilization import cli
 
     parser = argparse.ArgumentParser(prog="flaky-stab")
     cli.setup_cli(parser)
@@ -47,7 +47,7 @@ def _junit_xml(name_status_pairs, ts: datetime) -> str:
 
 @pytest.fixture
 def history_reset():
-    from hermes_flaky_stabilization.history import storage
+    from flaky_stabilization.history import storage
 
     storage.reset_for_tests()
     yield
@@ -93,7 +93,7 @@ def test_jira_exit_code_propagates(profile_env, monkeypatch, capsys):
     (0 success, 1 handled failure). run_cli must propagate it — a hard-coded 0
     would let handled sync failures exit successfully, so the nightly cron
     shim could never alert. None is tolerated as 0 (robust seam)."""
-    from hermes_flaky_stabilization.incidents import cli as incidents_cli
+    from flaky_stabilization.incidents import cli as incidents_cli
 
     monkeypatch.setattr(incidents_cli, "hermes_jira_incidents_command",
                         lambda args: 1)
@@ -111,7 +111,7 @@ def test_test_history_alias_exposes_history_cli(profile_env, history_reset, caps
     behavior, registered as its own top-level command."""
     from _doubles import FakePluginContext
 
-    import hermes_flaky_stabilization as plugin
+    import flaky_stabilization as plugin
 
     ctx = FakePluginContext()
     plugin.register(ctx)

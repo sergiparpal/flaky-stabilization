@@ -1,9 +1,9 @@
-# hermes-flaky-stabilization — first steps
+# flaky-stabilization — first steps
 
 1. **Enable it** (standalone plugins are opt-in):
 
    ```bash
-   hermes plugins enable hermes-flaky-stabilization
+   hermes plugins enable flaky-stabilization
    ```
 
    Migrating from the seven legacy plugins? Disable them first and run
@@ -18,7 +18,7 @@
 
 3. **Optional image-evidence OCR.** To scan screenshots or other image
    evidence, install the package's `ocr` extra in the environment that runs
-   Hermes (`python -m pip install "hermes-flaky-stabilization[ocr]"`) and
+   Hermes (`python -m pip install "flaky-stabilization[ocr]"`) and
    install the system `tesseract` executable. Without both, an image is
    reported as `ocr_unavailable`; PII-gated tracker writes refuse incomplete
    evidence rather than treating the image as clean.

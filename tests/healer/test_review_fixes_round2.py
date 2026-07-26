@@ -235,7 +235,7 @@ def test_apply_ops_reads_utf8_specs_under_c_locale(tmp_path):
     spec.write_bytes("await page.click('#botón', { timeout: 2000 });\n".encode())
     code = (
         "import sys; sys.path.insert(0, sys.argv[1])\n"
-        "from hermes_flaky_stabilization.healer.flaky_healer.strategies import (\n"
+        "from flaky_stabilization.healer.flaky_healer.strategies import (\n"
         "    PatchOp, apply_ops)\n"
         "op = PatchOp(file='t.spec.ts', op='replace', anchor='timeout: 2000',\n"
         "             old='timeout: 2000', new='timeout: 6000')\n"

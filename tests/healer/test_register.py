@@ -77,7 +77,7 @@ def test_manifest_follows_contract():
     import re
 
     manifest = (REPO_ROOT / "plugin.yaml").read_text()
-    assert "name: hermes-flaky-stabilization" in manifest
+    assert "name: flaky-stabilization" in manifest
     assert not re.search(r"^requires_env\s*:", manifest, re.M), (
         "GITHUB_TOKEN must NOT be in requires_env — it would disable the whole plugin"
     )

@@ -46,7 +46,7 @@ def scrub_ci_secrets(text: str) -> str:
     if not text:
         return text
     try:
-        from hermes_flaky_stabilization.common import secretscrub
+        from flaky_stabilization.common import secretscrub
     except Exception:  # pragma: no cover - flat/path-loaded import fallback
         return redact_mod.mask_tokens(text)
     return secretscrub.scrub_text(text)

@@ -45,7 +45,7 @@ def _spec_load(name: str, package_dir: Path):
 
 def test_validate_no_pii_parity(tmp_path):
     legacy = _spec_load("legacy_masking_validator", LEGACY_MV)
-    from hermes_flaky_stabilization import pii as unified
+    from flaky_stabilization import pii as unified
 
     evidence = tmp_path / "evidence"
     (evidence / "sub").mkdir(parents=True)
@@ -110,7 +110,7 @@ def test_improve_bug_report_parity(fmt):
     legacy_handler = _spec_load(
         "legacy_bug_report_improver", LEGACY_BR / "hermes_bug_report_improver"
     )
-    from hermes_flaky_stabilization import bugreport as unified
+    from flaky_stabilization import bugreport as unified
 
     args = {"raw_text": "checkout broken on safari, does nothing", "format": fmt}
     legacy_out = legacy_handler.handler.make_handler(_Ctx([dict(_REPORT)]))(dict(args))
@@ -123,7 +123,7 @@ def test_improve_bug_report_parity(fmt):
 
 def test_triage_parity_heuristic(tmp_path, profile_env):
     legacy = _spec_load("legacy_ci_triage", LEGACY_CT)
-    from hermes_flaky_stabilization.triage import handlers as unified_handlers
+    from flaky_stabilization.triage import handlers as unified_handlers
 
     log = tmp_path / "fail.log"
     log.write_text(

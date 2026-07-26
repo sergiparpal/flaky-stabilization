@@ -12,7 +12,7 @@ from pathlib import Path
 from _doubles import find_hermes_repo
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-PLUGIN_NAME = "hermes-flaky-stabilization"
+PLUGIN_NAME = "flaky-stabilization"
 HERMES_REPO = find_hermes_repo()
 
 
@@ -23,8 +23,8 @@ def install_plugin(home: Path) -> Path:
     shutil.copy(REPO_ROOT / "plugin.yaml", dest / "plugin.yaml")
     shutil.copy(REPO_ROOT / "__init__.py", dest / "__init__.py")
     shutil.copytree(
-        REPO_ROOT / "hermes_flaky_stabilization",
-        dest / "hermes_flaky_stabilization",
+        REPO_ROOT / "flaky_stabilization",
+        dest / "flaky_stabilization",
         ignore=shutil.ignore_patterns("__pycache__"),
     )
     shutil.copytree(REPO_ROOT / "skills", dest / "skills")
@@ -47,7 +47,7 @@ from tools.registry import registry
 
 pm = PluginManager()
 pm.discover_and_load()
-loaded = pm._plugins.get("hermes-flaky-stabilization")
+loaded = pm._plugins.get("flaky-stabilization")
 tool_names = registry.get_all_tool_names()
 out = {
     "found": loaded is not None,

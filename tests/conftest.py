@@ -1,4 +1,4 @@
-"""Root test bootstrap for hermes-flaky-stabilization.
+"""Root test bootstrap for flaky-stabilization.
 
 Responsibilities:
   1. Make the package and the shared doubles importable regardless of pytest's
@@ -59,7 +59,7 @@ def _reset_history_singletons():
     one would leak a previous test's tmp HERMES_HOME into the next test (e.g.
     via triage enrichment, which opens history lazily)."""
     try:
-        from hermes_flaky_stabilization.history import storage
+        from flaky_stabilization.history import storage
 
         storage.reset_for_tests()
     except Exception:

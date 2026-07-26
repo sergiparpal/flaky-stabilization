@@ -7,15 +7,15 @@ import json
 
 from _doubles import FakePluginContext
 
-from hermes_flaky_stabilization.incidents import dedup
-from hermes_flaky_stabilization.orchestrator import hooks
-from hermes_flaky_stabilization.pii import gate
+from flaky_stabilization.incidents import dedup
+from flaky_stabilization.orchestrator import hooks
+from flaky_stabilization.pii import gate
 
 # --- pre_tool_call escalation (D6.3) ------------------------------------------------
 
 
 def _register(tmp_path):
-    import hermes_flaky_stabilization as plugin
+    import flaky_stabilization as plugin
 
     ctx = FakePluginContext(hermes_home=tmp_path)
     plugin.register(ctx)
@@ -74,7 +74,7 @@ def test_pre_tool_call_is_pure_dict_inspection():
 
 
 def _write_unified_jira_cfg(home, **jira):
-    from hermes_flaky_stabilization import config as unified_config
+    from flaky_stabilization import config as unified_config
 
     unified_config.write_config({"jira": jira}, home / "flaky-stabilization")
 
@@ -122,7 +122,7 @@ def test_stabilize_stays_silent_when_no_write_is_reachable(_isolated_env, monkey
 
 def test_stabilize_escalates_when_config_read_fails(monkeypatch):
     """Fail closed: an unreadable config with a token present must escalate."""
-    from hermes_flaky_stabilization import config as unified_config
+    from flaky_stabilization import config as unified_config
 
     monkeypatch.setenv("JIRA_API_TOKEN", "tok")
 
@@ -136,7 +136,7 @@ def test_stabilize_escalates_when_config_read_fails(monkeypatch):
 
 
 def _write_unified_pipeline_cfg(home, **pipeline):
-    from hermes_flaky_stabilization import config as unified_config
+    from flaky_stabilization import config as unified_config
 
     unified_config.write_config({"pipeline": pipeline}, home / "flaky-stabilization")
 
@@ -209,7 +209,7 @@ def test_gate_passes_configured_max_files_to_the_scanner(_isolated_env, monkeypa
                                                          tmp_path):
     """Regression: pii.default_max_files in the unified config was dead — the
     gate always called scan(path, None, None)."""
-    from hermes_flaky_stabilization import config as unified_config
+    from flaky_stabilization import config as unified_config
 
     unified_config.write_config({"pii": {"default_max_files": 123}},
                                 _isolated_env / "flaky-stabilization")
@@ -230,7 +230,7 @@ def test_gate_passes_configured_max_files_to_the_scanner(_isolated_env, monkeypa
 def test_gate_configured_max_files_bounds_the_walk(_isolated_env, tmp_path):
     """End to end: a directory with more files than pii.default_max_files is a
     truncated (incomplete) scan, so the gate fails closed."""
-    from hermes_flaky_stabilization import config as unified_config
+    from flaky_stabilization import config as unified_config
 
     unified_config.write_config({"pii": {"default_max_files": 1}},
                                 _isolated_env / "flaky-stabilization")
@@ -248,8 +248,8 @@ def test_gate_invalid_or_oversized_config_value_degrades_safely(_isolated_env,
     """A bad config value must not turn every scan into a validation error
     (which would fail the gate on clean evidence): invalid values fall back to
     the scanner default, oversized ones are clamped to the scanner ceiling."""
-    from hermes_flaky_stabilization import config as unified_config
-    from hermes_flaky_stabilization.pii import scanner as pii_scanner
+    from flaky_stabilization import config as unified_config
+    from flaky_stabilization.pii import scanner as pii_scanner
 
     seen = []
 
@@ -313,7 +313,7 @@ def test_dedup_empty_inputs():
 
 
 def _write_cfg(home, enable_write, base_url="https://x.atlassian.net"):
-    from hermes_flaky_stabilization import config as unified_config
+    from flaky_stabilization import config as unified_config
 
     unified_config.write_config(
         {"jira": {"enable_write": enable_write, "base_url": base_url,
@@ -323,7 +323,7 @@ def _write_cfg(home, enable_write, base_url="https://x.atlassian.net"):
 
 
 def test_create_incident_refuses_when_write_disabled(_isolated_env, monkeypatch):
-    from hermes_flaky_stabilization.incidents import write
+    from flaky_stabilization.incidents import write
 
     monkeypatch.setenv("JIRA_API_TOKEN", "tok")
     _write_cfg(_isolated_env, enable_write=False)
@@ -333,7 +333,7 @@ def test_create_incident_refuses_when_write_disabled(_isolated_env, monkeypatch)
 
 def test_create_incident_pii_gate_blocks_dirty_evidence(_isolated_env, monkeypatch,
                                                         tmp_path):
-    from hermes_flaky_stabilization.incidents import write
+    from flaky_stabilization.incidents import write
 
     monkeypatch.setenv("JIRA_API_TOKEN", "tok")
     _write_cfg(_isolated_env, enable_write=True)
@@ -347,9 +347,9 @@ def test_create_incident_pii_gate_blocks_dirty_evidence(_isolated_env, monkeypat
 
 
 def test_create_incident_posts_redacted_fields(_isolated_env, monkeypatch):
-    from hermes_flaky_stabilization.incidents import config as config_mod
-    from hermes_flaky_stabilization.incidents import write
-    from hermes_flaky_stabilization.incidents.jira_client import JiraClient
+    from flaky_stabilization.incidents import config as config_mod
+    from flaky_stabilization.incidents import write
+    from flaky_stabilization.incidents.jira_client import JiraClient
 
     monkeypatch.setenv("JIRA_API_TOKEN", "tok")
     _write_cfg(_isolated_env, enable_write=True)
@@ -384,9 +384,9 @@ def test_create_incident_posts_redacted_fields(_isolated_env, monkeypatch):
 
 
 def test_create_incident_error_never_echoes_body(_isolated_env, monkeypatch):
-    from hermes_flaky_stabilization.incidents import config as config_mod
-    from hermes_flaky_stabilization.incidents import write
-    from hermes_flaky_stabilization.incidents.jira_client import JiraClient
+    from flaky_stabilization.incidents import config as config_mod
+    from flaky_stabilization.incidents import write
+    from flaky_stabilization.incidents.jira_client import JiraClient
 
     monkeypatch.setenv("JIRA_API_TOKEN", "tok")
     _write_cfg(_isolated_env, enable_write=True)
@@ -406,7 +406,7 @@ def test_create_incident_error_never_echoes_body(_isolated_env, monkeypatch):
 
 
 def test_create_incident_check_fn(_isolated_env, monkeypatch):
-    from hermes_flaky_stabilization.incidents import write
+    from flaky_stabilization.incidents import write
 
     monkeypatch.delenv("JIRA_API_TOKEN", raising=False)
     _write_cfg(_isolated_env, enable_write=True)

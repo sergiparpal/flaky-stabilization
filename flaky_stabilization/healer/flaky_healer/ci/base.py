@@ -8,7 +8,7 @@ from typing import Protocol, runtime_checkable
 
 # Absolute import (the healer core loads both unified and via a flat shim); the
 # shared builder owns the "credential headers are unredirected on redirect" rule.
-from hermes_flaky_stabilization.common import nethttp
+from flaky_stabilization.common import nethttp
 
 
 class CIError(RuntimeError):

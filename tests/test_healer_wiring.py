@@ -14,7 +14,7 @@ from _doubles import FakePluginContext
 
 
 def _register(tmp_path, monkeypatch):
-    import hermes_flaky_stabilization as plugin
+    import flaky_stabilization as plugin
 
     monkeypatch.setenv("FLAKY_HEALER_DATA_DIR", str(tmp_path / "healer-data"))
     ctx = FakePluginContext(hermes_home=tmp_path / "hermes-home")
@@ -64,7 +64,7 @@ def test_audit_hooks_write_redacted_rows_into_state_db(tmp_path, monkeypatch):
         token="ghp_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789",
     )
 
-    from hermes_flaky_stabilization.storage import state
+    from flaky_stabilization.storage import state
 
     db_path = tmp_path / "healer-data" / "state.db"
     assert db_path.exists()

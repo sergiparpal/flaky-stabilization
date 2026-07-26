@@ -30,7 +30,7 @@ FIXTURES = TESTS_DIR / "fixtures"
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
 
-_REAL = "hermes_flaky_stabilization.healer"
+_REAL = "flaky_stabilization.healer"
 _pkg = importlib.import_module(_REAL)
 sys.modules.setdefault("handlers", importlib.import_module(f"{_REAL}.handlers"))
 sys.modules.setdefault("schemas", importlib.import_module(f"{_REAL}.schemas"))

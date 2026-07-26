@@ -17,8 +17,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from hermes_flaky_stabilization.common import secretscrub
-from hermes_flaky_stabilization.pii.scanner import mask_pii
+from flaky_stabilization.common import secretscrub
+from flaky_stabilization.pii.scanner import mask_pii
 
 from .shapes import shape
 from .zipsafe import ZipBudget, ZipLimitError, guard_entry_count

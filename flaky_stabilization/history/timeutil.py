@@ -1,6 +1,6 @@
 """Timestamp normalization for the ingest and query/CLI layers.
 
-Re-export shim over :mod:`hermes_flaky_stabilization.common.timeutil`, the
+Re-export shim over :mod:`flaky_stabilization.common.timeutil`, the
 single owner of the naive-UTC ISO-8601 rule. History and detective used to
 carry divergent copies (history's parser rejected the space-separated form
 detective accepted); both now delegate here so they cannot drift again. The

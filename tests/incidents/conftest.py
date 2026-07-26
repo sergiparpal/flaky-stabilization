@@ -16,10 +16,10 @@ import sys
 import pytest
 
 _ALIAS = "jira_incidents"
-_REAL = "hermes_flaky_stabilization.incidents"
+_REAL = "flaky_stabilization.incidents"
 
 _pkg = importlib.import_module(_REAL)
-_redaction = importlib.import_module("hermes_flaky_stabilization.pii.redaction")
+_redaction = importlib.import_module("flaky_stabilization.pii.redaction")
 if not isinstance(sys.modules.get(_ALIAS), type(_pkg)) or sys.modules.get(_ALIAS) is not _pkg:
     sys.modules[_ALIAS] = _pkg
 for _name in ("jira_client", "ingest", "store", "prefetch", "sync", "config", "cli"):

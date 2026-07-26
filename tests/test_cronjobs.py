@@ -14,7 +14,7 @@ import stat
 
 import pytest
 
-from hermes_flaky_stabilization import cronjobs
+from flaky_stabilization import cronjobs
 
 SCAN_JOB = cronjobs.CronJob("flaky-stab-scan.sh", "flaky-stabilization", "cron job")
 JIRA_JOB = cronjobs.CronJob(

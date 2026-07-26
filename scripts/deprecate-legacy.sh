@@ -24,8 +24,8 @@ REPOS=(
   hermes-jira-incidents
 )
 OWNER="sergiparpal"
-UNIFIED="https://github.com/${OWNER}/hermes-flaky-stabilization"
-BANNER="> **DEPRECATED — superseded by [hermes-flaky-stabilization](${UNIFIED}).**\\n> Bug fixes land only there; see its MIGRATION.md. This repo is archived read-only."
+UNIFIED="https://github.com/${OWNER}/flaky-stabilization"
+BANNER="> **DEPRECATED — superseded by [flaky-stabilization](${UNIFIED}).**\\n> Bug fixes land only there; see its MIGRATION.md. This repo is archived read-only."
 
 # Legacy repos are checked out as SIBLINGS of this repo — resolve their parent
 # from the script's own location (preflight.sh's pattern), never the caller's
@@ -56,7 +56,7 @@ for repo in "${REPOS[@]}"; do
   else
     run bash -c "printf '%b\n\n' \"${BANNER}\" | cat - '${dir}/README.md' > '${dir}/README.md.new' && mv '${dir}/README.md.new' '${dir}/README.md'"
     run git -C "${dir}" add README.md
-    run git -C "${dir}" commit -m "Deprecate: superseded by ${OWNER}/hermes-flaky-stabilization"
+    run git -C "${dir}" commit -m "Deprecate: superseded by ${OWNER}/flaky-stabilization"
     run git -C "${dir}" push
   fi
   echo "# 2) final release"

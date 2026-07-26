@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-PACKAGE = Path(__file__).resolve().parent.parent / "hermes_flaky_stabilization"
+PACKAGE = Path(__file__).resolve().parent.parent / "flaky_stabilization"
 
 # module path (relative to the package) -> why it may spawn processes
 SUBPROCESS_ALLOWLIST = {

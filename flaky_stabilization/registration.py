@@ -12,7 +12,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-PLUGIN_NAME = "hermes-flaky-stabilization"
+PLUGIN_NAME = "flaky-stabilization"
 CLI_COMMAND = "flaky-stab"
 
 
@@ -124,7 +124,7 @@ def _register_cli(ctx) -> None:
         setup_fn=cli.setup_cli,
         handler_fn=cli.run_cli,
         description=(
-            "Manage the hermes-flaky-stabilization plugin: ingest JUnit XML, scan for "
+            "Manage the flaky-stabilization plugin: ingest JUnit XML, scan for "
             "flaky tests, sync the Jira incident index, migrate legacy plugin data, "
             "and install the nightly cron job."
         ),

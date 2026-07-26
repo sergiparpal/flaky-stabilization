@@ -1,6 +1,6 @@
 """Timestamp normalization for the reader, detection, and CLI layers.
 
-Re-export shim over :mod:`hermes_flaky_stabilization.common.timeutil`, the
+Re-export shim over :mod:`flaky_stabilization.common.timeutil`, the
 single owner of the naive-UTC ISO-8601 rule (see that module for why the
 canonical ``T``-separated form makes a string sort a chronological sort).
 History and detective used to carry divergent copies; both now delegate here.

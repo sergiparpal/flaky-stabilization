@@ -14,11 +14,11 @@ from pathlib import Path
 
 from _doubles import FakePluginContext
 
-PACKAGE = Path(__file__).resolve().parent.parent / "hermes_flaky_stabilization"
+PACKAGE = Path(__file__).resolve().parent.parent / "flaky_stabilization"
 
 
 def _register(monkeypatch=None):
-    import hermes_flaky_stabilization as plugin
+    import flaky_stabilization as plugin
 
     ctx = FakePluginContext()
     plugin.register(ctx)
@@ -26,7 +26,7 @@ def _register(monkeypatch=None):
 
 
 def _seed_store(home: Path) -> None:
-    from hermes_flaky_stabilization.incidents.store import IncidentStore
+    from flaky_stabilization.incidents.store import IncidentStore
 
     store = IncidentStore(str(home / "flaky-stabilization" / "state.db"))
     store.upsert({
@@ -58,7 +58,7 @@ def test_pre_llm_call_returns_redacted_context(_isolated_env):
 
 def test_pre_llm_call_none_when_config_flag_off(_isolated_env):
     _seed_store(_isolated_env)
-    from hermes_flaky_stabilization import config as unified_config
+    from flaky_stabilization import config as unified_config
 
     unified_config.write_config({"incidents": {"context_injection": False}})
     ctx = _register()
@@ -68,7 +68,7 @@ def test_pre_llm_call_none_when_config_flag_off(_isolated_env):
 
 def test_pre_llm_call_bounded_by_timeout_with_slow_store(_isolated_env):
     _seed_store(_isolated_env)
-    from hermes_flaky_stabilization import config as unified_config
+    from flaky_stabilization import config as unified_config
 
     unified_config.write_config({"incidents": {"prefetch_timeout": 0.2}})
 
@@ -127,7 +127,7 @@ def test_on_session_start_triggers_background_sync_with_creds(_isolated_env, mon
 
     service = _service_via_checkfn(ctx)
     monkeypatch.setattr(
-        "hermes_flaky_stabilization.incidents.config.build_client",
+        "flaky_stabilization.incidents.config.build_client",
         lambda cfg, token: FakeClient(),
     )
     ctx.fire_hook("on_session_start", session_id="s1")
@@ -169,10 +169,10 @@ def _issue(key: str, updated: str):
 
 def test_cli_jira_sync_populates_index_and_is_incrementally_quiet(
         _isolated_env, monkeypatch, capsys):
-    from hermes_flaky_stabilization import cli
-    from hermes_flaky_stabilization.incidents import cli as incidents_cli
-    from hermes_flaky_stabilization.incidents import config as config_mod
-    from hermes_flaky_stabilization.incidents.store import IncidentStore
+    from flaky_stabilization import cli
+    from flaky_stabilization.incidents import cli as incidents_cli
+    from flaky_stabilization.incidents import config as config_mod
+    from flaky_stabilization.incidents.store import IncidentStore
 
     monkeypatch.setenv("JIRA_API_TOKEN", "tok")
     monkeypatch.setenv("JIRA_BASE_URL", "https://x.atlassian.net")

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# CI-parity test wrapper for hermes-flaky-stabilization (the only sanctioned
+# CI-parity test wrapper for flaky-stabilization (the only sanctioned
 # test entry point, plan §8). Same environment hardening as the legacy plugin
 # repos: credential env vars scrubbed so tests can never reach a real backend,
 # deterministic timezone/locale/hash-seed.

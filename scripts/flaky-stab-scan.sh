@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Nightly no-agent cron shim for hermes-flaky-stabilization.
+# Nightly no-agent cron shim for flaky-stabilization.
 #
 # Installed into ~/.hermes/scripts/ by `hermes flaky-stab install-cron`.
 # A no-agent cron job runs this on a schedule and delivers its stdout verbatim at

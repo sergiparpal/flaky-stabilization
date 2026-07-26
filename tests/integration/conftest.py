@@ -27,7 +27,7 @@ HERMES_REPO = find_hermes_repo()
 if HERMES_REPO is None:
     collect_ignore_glob = ["test_*.py"]
     print(
-        "\n[hermes-flaky-stabilization integration] hermes-agent checkout not "
+        "\n[flaky-stabilization integration] hermes-agent checkout not "
         "found. Set HERMES_REPO to run the integration suite. Skipping.\n",
         file=sys.stderr,
     )

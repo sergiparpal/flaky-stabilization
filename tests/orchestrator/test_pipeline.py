@@ -6,8 +6,8 @@ import json
 import logging
 from pathlib import Path
 
-from hermes_flaky_stabilization.orchestrator import pipeline as pl
-from hermes_flaky_stabilization.pii.gate import GateResult
+from flaky_stabilization.orchestrator import pipeline as pl
+from flaky_stabilization.pii.gate import GateResult
 
 REPORT = {
     "title": "Checkout broken on Safari",
@@ -44,8 +44,8 @@ def _real_heal_report(test_id: str, repo_dir: str, *, stable: bool, runs: int) -
     passed = runs if stable else max(runs - 1, 0)
     failed = 0 if stable else min(runs, 1)
     try:
-        from hermes_flaky_stabilization.healer.flaky_healer.healer import HealReport
-        from hermes_flaky_stabilization.healer.flaky_healer.sandbox.base import RunReport
+        from flaky_stabilization.healer.flaky_healer.healer import HealReport
+        from flaky_stabilization.healer.flaky_healer.sandbox.base import RunReport
 
         burnin = RunReport(runs=runs, passed=passed, failed=failed,
                            isolation="subprocess", duration_s=1.2,
@@ -549,7 +549,7 @@ def test_incident_lookup_failure_is_logged_and_noted(tmp_path, caplog):
 
     p.stages.incident_search = boom
     with caplog.at_level(logging.WARNING,
-                         logger="hermes_flaky_stabilization.orchestrator.pipeline"):
+                         logger="flaky_stabilization.orchestrator.pipeline"):
         out = p.run({"log_url_or_path": _log(tmp_path), "test_id": "t"})
     assert any("incident-context lookup failed (RuntimeError)" in n
                for n in out["notes"])
@@ -608,11 +608,11 @@ def test_command_splits_evidence_paths_into_a_list(monkeypatch):
 
 
 def test_synthetic_run_visible_via_test_failure_lookup(profile_env):
-    from hermes_flaky_stabilization.history import (
+    from flaky_stabilization.history import (
         _handle_test_failure_lookup,
         storage,
     )
-    from hermes_flaky_stabilization.history import ingest as history_ingest
+    from flaky_stabilization.history import ingest as history_ingest
 
     storage.reset_for_tests()
     conn = storage.get_connection()
@@ -645,7 +645,7 @@ def test_registered_tool_end_to_end_heuristic_path(profile_env, tmp_path):
     triage degrades to the heuristic, the bug branch produces ticket_ready."""
     from _doubles import FakePluginContext
 
-    import hermes_flaky_stabilization as plugin
+    import flaky_stabilization as plugin
 
     ctx = FakePluginContext(hermes_home=profile_env)
     plugin.register(ctx)
@@ -669,7 +669,7 @@ def test_registered_tool_end_to_end_heuristic_path(profile_env, tmp_path):
     # The run landed in the pipeline_runs ledger.
     from contextlib import closing
 
-    from hermes_flaky_stabilization.storage import state
+    from flaky_stabilization.storage import state
 
     with closing(state.connect()) as conn:
         rows = conn.execute("SELECT outcome, branch FROM pipeline_runs").fetchall()

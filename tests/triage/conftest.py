@@ -16,7 +16,7 @@ import pytest
 
 _NS_PARENT = "hermes_plugins"
 _FQ = "hermes_plugins.hermes_ci_triage"
-_REAL = "hermes_flaky_stabilization.triage"
+_REAL = "flaky_stabilization.triage"
 
 if _NS_PARENT not in sys.modules:
     ns = types.ModuleType(_NS_PARENT)
@@ -45,7 +45,7 @@ def isolated_unified_config(tmp_path, monkeypatch):
     leak into (or be created by) the suite. Config-wiring tests write their
     config.json into the returned directory.
     """
-    from hermes_flaky_stabilization import paths
+    from flaky_stabilization import paths
 
     cfg_dir = tmp_path / "flaky-stab-config"
     cfg_dir.mkdir(exist_ok=True)
@@ -74,7 +74,7 @@ def tmp_hermes_home(tmp_path, monkeypatch):
 def seeded_history(tmp_hermes_home):
     """A test-history DB (inside the tmp home) with one known failing test,
     for the fixed direct-call enrichment path (plan §2 row 6)."""
-    from hermes_flaky_stabilization.history import storage as history_storage
+    from flaky_stabilization.history import storage as history_storage
 
     history_storage.reset_for_tests()
     conn = history_storage.get_connection()

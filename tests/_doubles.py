@@ -1,4 +1,4 @@
-"""Shared test doubles for hermes-flaky-stabilization.
+"""Shared test doubles for flaky-stabilization.
 
 ``FakePluginContext`` mirrors the subset of the Hermes Agent
 ``PluginContext`` API this plugin uses (plan §3.3), extended from
@@ -204,7 +204,7 @@ class FakeTransport:
         return status, dict(resp_headers), payload
 
 
-def load_plugin_module(name: str = "hermes_flaky_stabilization_plugin"):
+def load_plugin_module(name: str = "flaky_stabilization_plugin"):
     """Load the plugin entry (root ``__init__.py``) the way a Hermes host would:
     via importlib with ``submodule_search_locations``, not via ``sys.path``."""
     for key in [k for k in sys.modules if k == name or k.startswith(name + ".")]:

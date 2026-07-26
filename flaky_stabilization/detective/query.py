@@ -127,7 +127,7 @@ def _warn_on_schema_mismatch(version: int | None) -> None:
     elif version > expected:
         raise TestHistoryUnavailable(
             f"test-history schema_version is {version}, newer than supported "
-            f"version {expected}; upgrade hermes-flaky-stabilization before scanning."
+            f"version {expected}; upgrade flaky-stabilization before scanning."
         )
     elif version != expected:
         logger.warning(

@@ -373,7 +373,7 @@ class TestSpecEncoding:
             f"""
             import sys
             sys.path.insert(0, {str(REPO_ROOT)!r})
-            from hermes_flaky_stabilization.healer.flaky_healer.healer import heal
+            from flaky_stabilization.healer.flaky_healer.healer import heal
 
             class StubSandbox:
                 isolation = "stub"

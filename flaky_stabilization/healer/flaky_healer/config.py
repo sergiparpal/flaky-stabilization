@@ -101,8 +101,8 @@ def _unified_healer_config() -> dict:
     if cache is not None and "section" in cache:
         return cache["section"]
     try:
-        from hermes_flaky_stabilization import config as unified_config
-        from hermes_flaky_stabilization import paths as unified_paths
+        from flaky_stabilization import config as unified_config
+        from flaky_stabilization import paths as unified_paths
     except Exception:  # pragma: no cover — flat import context without the package
         return {}
     try:

@@ -6,7 +6,7 @@ the LLM provider for classification, (b) forwarded to another tool, or (c)
 echoed back in the tool's result — so a secret that leaked into a build log is
 not propagated or reflected further.
 
-The secret *shapes* live once in :mod:`hermes_flaky_stabilization.common.secretscrub`
+The secret *shapes* live once in :mod:`flaky_stabilization.common.secretscrub`
 (shared with the healer's audit masking and the incidents PII redactor, so a
 new credential format is added in one place). This module owns only the triage
 convention: replace every match with :data:`PLACEHOLDER`. Conservative by

@@ -6,7 +6,7 @@ import copy
 import json
 import stat
 
-from hermes_flaky_stabilization import config
+from flaky_stabilization import config
 
 
 def test_missing_file_yields_defaults(profile_env):

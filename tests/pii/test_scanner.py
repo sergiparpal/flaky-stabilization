@@ -127,9 +127,9 @@ def test_binary_file_skipped(tmp_path):
 
 def _load_plugin_init():
     """The stage package owning validate_no_pii (unified-plugin adaptation:
-    the legacy repo-root __init__.py became hermes_flaky_stabilization.pii)."""
+    the legacy repo-root __init__.py became flaky_stabilization.pii)."""
     import importlib
-    return importlib.import_module("hermes_flaky_stabilization.pii")
+    return importlib.import_module("flaky_stabilization.pii")
 
 
 def test_handler_returns_json_string(tmp_path):
@@ -379,7 +379,7 @@ def test_source_has_no_shell_or_dynamic_exec():
 
     (The package-wide sweep with its pinned subprocess allowlist lives in
     tests/test_security_scan.py; this keeps the legacy per-stage guard.)"""
-    import hermes_flaky_stabilization.pii as pii_pkg
+    import flaky_stabilization.pii as pii_pkg
     root = os.path.dirname(os.path.abspath(pii_pkg.__file__))
     forbidden = ["subprocess", "os.system(", "eval(", "exec(", "os.popen("]
     for name in ["__init__.py", "detectors.py", "scanner.py", "redaction.py"]:

@@ -1,4 +1,4 @@
-"""hermes-flaky-stabilization — the unified flaky-test stabilization pipeline.
+"""flaky-stabilization — the unified flaky-test stabilization pipeline.
 
 One ``kind: standalone`` Hermes plugin absorbing seven stages: test-history
 indexing, flaky detection, CI triage, sandboxed healing, bug-report

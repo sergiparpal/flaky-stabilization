@@ -19,7 +19,7 @@ SNAPSHOT_DIR = Path(__file__).resolve().parent / "snapshots"
 
 
 def _registered_tools() -> dict:
-    import hermes_flaky_stabilization as plugin
+    import flaky_stabilization as plugin
 
     ctx = FakePluginContext()
     plugin.register(ctx)

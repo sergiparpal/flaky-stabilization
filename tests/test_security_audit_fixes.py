@@ -19,7 +19,7 @@ import pytest
 
 class TestTriageRedactBypasses:
     def _redact(self):
-        from hermes_flaky_stabilization.triage import redact
+        from flaky_stabilization.triage import redact
         return redact
 
     @pytest.mark.parametrize("line,secret", [
@@ -58,7 +58,7 @@ class TestTriageRedactBypasses:
 
 class TestHealerLogScrub:
     def test_ci_log_secrets_scrubbed_signal_kept(self):
-        from hermes_flaky_stabilization.healer.flaky_healer import ci_logs
+        from flaky_stabilization.healer.flaky_healer import ci_logs
         log = (
             "AssertionError: expected 200 got 500\n"
             '+ curl -H "Authorization: Bearer ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"\n'
@@ -80,7 +80,7 @@ class TestPiiDetectorRecall:
     @pytest.mark.parametrize("email", ["josé@example.com", "иван@example.com",
                                        "bob@example.com"])
     def test_gate_detects_internationalized_emails(self, email):
-        from hermes_flaky_stabilization.pii import detectors
+        from flaky_stabilization.pii import detectors
         assert [f.type for f in detectors.run_detectors(email)] == ["email"]
 
     @pytest.mark.parametrize("text,label", [
@@ -92,13 +92,13 @@ class TestPiiDetectorRecall:
         ("IPv4 192.168.1.100", "[redacted-ip]"),       # control
     ])
     def test_outbound_redactor_covers_gaps(self, text, label):
-        from hermes_flaky_stabilization.pii import redaction
+        from flaky_stabilization.pii import redaction
         assert label in redaction.redact_text(text)
 
     @pytest.mark.parametrize("safe", ["build at 12:34:56 done", "mac 00:1a:2b:3c:4d:5e",
                                       "version 1.2.3", "date 2024-01-15 10:00"])
     def test_outbound_redactor_no_over_redaction(self, safe):
-        from hermes_flaky_stabilization.pii import redaction
+        from flaky_stabilization.pii import redaction
         assert redaction.redact_text(safe) == safe
 
 
@@ -107,7 +107,7 @@ class TestOutboundTicketEgress:
         """The direct jira_create_incident path now runs the mask_pii egress
         canary (not just redact_text), so PII classes only the scanner catches
         are masked before the ticket leaves the machine."""
-        from hermes_flaky_stabilization.incidents import write
+        from flaky_stabilization.incidents import write
         ticket = write.build_ticket(
             {"title": "leak josé@example.com",
              "body": "SSN 123 45 6789 host 2001:db8::1"},
@@ -128,7 +128,7 @@ class TestPermissionHardening:
         return stat.S_IMODE(os.stat(path).st_mode)
 
     def test_harden_db_files_covers_sidecars(self, tmp_path):
-        from hermes_flaky_stabilization import paths
+        from flaky_stabilization import paths
         base = tmp_path / "state.db"
         for suffix in ("", "-wal", "-shm", "-journal"):
             fd = os.open(str(base) + suffix, os.O_CREAT | os.O_WRONLY, 0o644)
@@ -138,13 +138,13 @@ class TestPermissionHardening:
             assert self._mode(str(base) + suffix) == 0o600
 
     def test_precreate_private_owns_file_before_connect(self, tmp_path):
-        from hermes_flaky_stabilization import paths
+        from flaky_stabilization import paths
         p = tmp_path / "new.db"
         paths.precreate_private(p)
         assert p.exists() and self._mode(p) == 0o600
 
     def test_special_paths_are_noops(self):
-        from hermes_flaky_stabilization import paths
+        from flaky_stabilization import paths
         # Must not raise or try to touch a real file.
         paths.precreate_private(":memory:")
         paths.harden_db_files(":memory:")
@@ -153,7 +153,7 @@ class TestPermissionHardening:
     def test_state_db_and_dir_are_owner_only(self, _isolated_env):
         from contextlib import closing
 
-        from hermes_flaky_stabilization.storage import state
+        from flaky_stabilization.storage import state
         with closing(state.connect()) as conn:
             conn.execute("CREATE TABLE IF NOT EXISTS _t(x)")
             conn.commit()
@@ -170,29 +170,29 @@ class TestCronScheduleValidation:
     @pytest.mark.parametrize("good", ["0 9 * * *", "*/5 * * * *", "@daily",
                                       "0 0 1 JAN *", "0 9 * * MON"])
     def test_valid_schedules_accepted(self, good):
-        from hermes_flaky_stabilization.detective import domain
+        from flaky_stabilization.detective import domain
         domain.validate_cron_schedule(good)  # no raise
 
     @pytest.mark.parametrize("bad", ["--name=evil", "-9 * * * *",
                                      "0 9 * * * ; rm -rf /", "$(whoami) * * * *",
                                      "0 9 * *", ""])
     def test_injection_and_malformed_rejected(self, bad):
-        from hermes_flaky_stabilization.detective import domain
+        from flaky_stabilization.detective import domain
         with pytest.raises(ValueError):
             domain.validate_cron_schedule(bad)
 
 
 class TestGitHubBaseHttpsOnly:
     def test_http_base_rejected(self):
-        from hermes_flaky_stabilization.healer.flaky_healer.ci import base as ci_base
-        from hermes_flaky_stabilization.healer.flaky_healer.ci.github_actions import (
+        from flaky_stabilization.healer.flaky_healer.ci import base as ci_base
+        from flaky_stabilization.healer.flaky_healer.ci.github_actions import (
             GitHubActionsCI,
         )
         with pytest.raises(ci_base.CIError, match="https"):
             GitHubActionsCI(token="t", api_base="http://internal.corp/api/v3")
 
     def test_https_base_accepted(self):
-        from hermes_flaky_stabilization.healer.flaky_healer.ci.github_actions import (
+        from flaky_stabilization.healer.flaky_healer.ci.github_actions import (
             GitHubActionsCI,
         )
         # Construction must not raise for an https GitHub Enterprise base.
@@ -201,7 +201,7 @@ class TestGitHubBaseHttpsOnly:
 
 class TestLogfetchUrlLeak:
     def test_non_https_refusal_hides_query(self):
-        from hermes_flaky_stabilization.triage import logfetch
+        from flaky_stabilization.triage import logfetch
         url = "http://ci.example.com/logs?token=SECRETVALUE123"
         with pytest.raises(logfetch.LogFetchError) as exc:
             logfetch.fetch_remote(url)
@@ -210,8 +210,8 @@ class TestLogfetchUrlLeak:
 
 class TestSandboxArgTermination:
     def test_docker_command_terminates_options_before_test_id(self):
-        pytest.importorskip("hermes_flaky_stabilization.healer.flaky_healer.sandbox.docker")
-        from hermes_flaky_stabilization.healer.flaky_healer.sandbox.docker import (
+        pytest.importorskip("flaky_stabilization.healer.flaky_healer.sandbox.docker")
+        from flaky_stabilization.healer.flaky_healer.sandbox.docker import (
             DockerSandbox,
         )
         cmd = DockerSandbox(image="img").build_command(pathlib.Path("."),

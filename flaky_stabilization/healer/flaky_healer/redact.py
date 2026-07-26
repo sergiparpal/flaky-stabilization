@@ -8,7 +8,7 @@ Two complementary rules, applied together by :func:`redact`:
   pasted into a dispatched ``command``), which the key-name check alone misses.
 
 The credential *shapes* (``TOKEN_VALUE_RE``) and the sensitive-key matcher live
-once in :mod:`hermes_flaky_stabilization.common.secretscrub`, shared with the
+once in :mod:`flaky_stabilization.common.secretscrub`, shared with the
 triage log scrubber and the incidents PII redactor — the three used to keep
 divergent copies, so a format fixed in one leaked through the others. This
 module keeps only the healer conventions: the ``***`` mask, the recursive walk,
@@ -20,11 +20,11 @@ and ``secretscrub`` imports nothing from the plugin — no cycle).
 from __future__ import annotations
 
 # Absolute import (not relative): the healer core is loaded both as the unified
-# ``hermes_flaky_stabilization.healer.flaky_healer`` package and, via the stage
+# ``flaky_stabilization.healer.flaky_healer`` package and, via the stage
 # shim, as a flat ``flaky_healer`` — an absolute import resolves in both, the
 # same pattern ``config.py`` uses for the unified config. ``secretscrub`` is
 # stdlib-only and imports nothing from the plugin, so there is no cycle.
-from hermes_flaky_stabilization.common import secretscrub
+from flaky_stabilization.common import secretscrub
 
 MASK = "***"
 

@@ -1,4 +1,4 @@
-# hermes-flaky-stabilization
+# flaky-stabilization
 
 **One Hermes Agent plugin for the whole flaky-test stabilization pipeline**:
 JUnit failure history, flaky detection, CI-log triage, sandboxed healing with a
@@ -11,14 +11,14 @@ plugin with one private state store.
 > `hermes-masking-validator`, `hermes-jira-incidents`. See `MIGRATION.md`.
 >
 > The replaced plugins are no longer published. New installations must use
-> `hermes-flaky-stabilization`; this plugin's migration command is for
+> `flaky-stabilization`; this plugin's migration command is for
 > preserving data from existing legacy installations.
 
 ## Install & enable
 
 ```bash
-hermes plugins install sergiparpal/hermes-flaky-stabilization
-hermes plugins enable hermes-flaky-stabilization
+hermes plugins install sergiparpal/flaky-stabilization
+hermes plugins enable flaky-stabilization
 # disable the legacy plugins first — tool names would otherwise collide:
 hermes plugins disable hermes-test-history hermes-flaky-detective hermes-ci-triage \
   hermes-flaky-healer hermes-bug-report-improver hermes-masking-validator
@@ -136,7 +136,7 @@ content—is not complete and cannot authorize an external ticket write.
 ## Triage taxonomy
 
 `triage_pipeline_failure` classifies every CI failure into exactly one of six
-categories (single source of truth: `hermes_flaky_stabilization/triage/taxonomy.py`):
+categories (single source of truth: `flaky_stabilization/triage/taxonomy.py`):
 
 | Category | Meaning | Typical next action |
 |---|---|---|

@@ -4,7 +4,7 @@ Exposes ``register(ctx)``. This module is deliberately thin: schemas live in
 schemas.py, handlers in handlers.py, logic in flaky_healer/. It must import
 cleanly without Hermes installed. Unified-plugin adaptation: the skill file
 now lives at the unified repo root (``skills/flaky-healer/SKILL.md``), so the
-qualified skill name becomes ``hermes-flaky-stabilization:flaky-healer``
+qualified skill name becomes ``flaky-stabilization:flaky-healer``
 (documented breaking change, plan §10).
 """
 

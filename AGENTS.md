@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-Runtime code lives in `hermes_flaky_stabilization/`. Feature stages are separated into
+Runtime code lives in `flaky_stabilization/`. Feature stages are separated into
 `history/`, `detective/`, `triage/`, `healer/`, `bugreport/`, `pii/`, and `incidents/`;
 `orchestrator/` composes them, `storage/` owns SQLite infrastructure, and `common/` is the
 dependency-light kernel. Keep Hermes-facing wiring in `registration.py` and `cli.py`.
@@ -43,7 +43,7 @@ live tests must use their declared markers; the default suite excludes all three
 credentials. Maintain at least 85% coverage:
 
 ```bash
-bash scripts/run_tests.sh -- --cov=hermes_flaky_stabilization --cov-fail-under=85
+bash scripts/run_tests.sh -- --cov=flaky_stabilization --cov-fail-under=85
 ```
 
 ## Commit & Pull Request Guidelines

@@ -67,7 +67,7 @@ EXPECTED_TOOLSETS = {
 
 
 def _register(ctx=None):
-    import hermes_flaky_stabilization as plugin
+    import flaky_stabilization as plugin
 
     ctx = ctx or FakePluginContext()
     plugin.register(ctx)
@@ -105,7 +105,7 @@ def test_cli_mismatch_does_not_block_tool_loading():
         def register_cli_command(self, *args, **kwargs):
             raise TypeError("register_cli_command() got an unexpected keyword argument")
 
-    import hermes_flaky_stabilization as plugin
+    import flaky_stabilization as plugin
 
     ctx = HostileCliContext()
     plugin.register(ctx)  # must not raise
@@ -137,7 +137,7 @@ _FORBIDDEN_MARKERS = ("register_memory" + "_provider", "Memory" + "Provider")
 
 
 def test_entry_files_free_of_memory_provider_markers():
-    package_init = REPO_ROOT / "hermes_flaky_stabilization" / "__init__.py"
+    package_init = REPO_ROOT / "flaky_stabilization" / "__init__.py"
     for entry in (REPO_ROOT / "__init__.py", package_init):
         head = entry.read_text(encoding="utf-8")[:8192]
         for marker in _FORBIDDEN_MARKERS:
@@ -149,7 +149,7 @@ def test_entry_files_free_of_memory_provider_markers():
 # submodule_search_locations, NOT by putting the (hyphenated) plugin directory on
 # sys.path. Reproduce that load from a foreign CWD with PYTHONPATH cleared and
 # the package not installed, so it fails if the shim stops making
-# `hermes_flaky_stabilization` importable on its own.
+# `flaky_stabilization` importable on its own.
 
 _HERMES_LOADER = """\
 import importlib.util, sys

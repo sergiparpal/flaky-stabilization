@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from hermes_flaky_stabilization import paths
-from hermes_flaky_stabilization.storage import state
+from flaky_stabilization import paths
+from flaky_stabilization.storage import state
 
 EXPECTED_TABLES = {
     "flaky_verdicts",
@@ -107,11 +107,11 @@ def test_hermes_home_env_value_is_expanded(monkeypatch, tmp_path):
 
 def _every_stage_resolver() -> dict[str, str]:
     """Every module-level "where is Hermes home?" answer, keyed by owner."""
-    from hermes_flaky_stabilization import triage as triage_pkg
-    from hermes_flaky_stabilization.detective import storage as detective_storage
-    from hermes_flaky_stabilization.history import storage as history_storage
-    from hermes_flaky_stabilization.incidents import config as incidents_config
-    from hermes_flaky_stabilization.triage import handlers as triage_handlers
+    from flaky_stabilization import triage as triage_pkg
+    from flaky_stabilization.detective import storage as detective_storage
+    from flaky_stabilization.history import storage as history_storage
+    from flaky_stabilization.incidents import config as incidents_config
+    from flaky_stabilization.triage import handlers as triage_handlers
 
     return {
         "paths": str(paths.get_hermes_home()),

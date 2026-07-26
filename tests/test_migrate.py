@@ -9,7 +9,7 @@ from contextlib import closing
 
 import pytest
 
-from hermes_flaky_stabilization.storage import migrate_legacy, state
+from flaky_stabilization.storage import migrate_legacy, state
 
 # --- legacy fixture builders (raw SQL matching the legacy schemas) ------------------
 
@@ -63,7 +63,7 @@ def _build_patterns_db(path):
 
 
 def _build_healer_db(path, *, v1: bool):
-    from hermes_flaky_stabilization.healer.flaky_healer.recipes.signature import (
+    from flaky_stabilization.healer.flaky_healer.recipes.signature import (
         signature_parts,
     )
 
@@ -186,7 +186,7 @@ def test_migrate_copies_everything_idempotently(legacy_home):
 
 
 def test_migrate_backfills_v1_recipe_relaxed_key(legacy_home):
-    from hermes_flaky_stabilization.healer.flaky_healer.recipes.signature import (
+    from flaky_stabilization.healer.flaky_healer.recipes.signature import (
         relaxed_key,
     )
 
@@ -199,7 +199,7 @@ def test_migrate_backfills_v1_recipe_relaxed_key(legacy_home):
     assert row["relaxed_key"] == relaxed_key(parts)
 
     # And the healer store's indexed relaxed matching now finds it.
-    from hermes_flaky_stabilization.healer.flaky_healer.recipes.store import HealerStore
+    from flaky_stabilization.healer.flaky_healer.recipes.store import HealerStore
 
     store = HealerStore(state.state_db_path())
     assert [r.signature for r in store.recipes_by_relaxed_key(relaxed_key(parts))] == [
@@ -361,8 +361,8 @@ def test_cli_migrate_reports_migration_error_as_failure(profile_env, monkeypatch
                                                         capsys):
     import argparse
 
-    from hermes_flaky_stabilization import cli
-    from hermes_flaky_stabilization.storage import migrate_legacy as ml
+    from flaky_stabilization import cli
+    from flaky_stabilization.storage import migrate_legacy as ml
 
     def refuse(**kwargs):
         raise ml.MigrationError("cannot attach legacy DB read-only (probe)")
@@ -379,7 +379,7 @@ def test_cli_migrate_reports_migration_error_as_failure(profile_env, monkeypatch
 def test_cli_migrate_and_status(legacy_home, capsys):
     import argparse
 
-    from hermes_flaky_stabilization import cli
+    from flaky_stabilization import cli
 
     parser = argparse.ArgumentParser(prog="flaky-stab")
     cli.setup_cli(parser)
@@ -405,7 +405,7 @@ def test_install_cron_with_jira_sync(profile_env, monkeypatch, capsys):
     import argparse
     from types import SimpleNamespace
 
-    from hermes_flaky_stabilization import cli
+    from flaky_stabilization import cli
 
     created = []
 
@@ -455,7 +455,7 @@ def test_install_cron_with_jira_sync_missing_shim_is_a_clean_error(
     import argparse
     from types import SimpleNamespace
 
-    from hermes_flaky_stabilization import cli
+    from flaky_stabilization import cli
 
     def fake_run(cmd, capture_output=False, text=False):
         return SimpleNamespace(returncode=0, stdout="created", stderr="")

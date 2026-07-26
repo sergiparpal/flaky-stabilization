@@ -4,7 +4,7 @@
 
 | # | Question | Answer |
 |---|---|---|
-| Q1 | Plugin name stays `hermes-flaky-stabilization`? | **Yes** — manifest name, package `hermes_flaky_stabilization`, data dir `<hermes_home>/flaky-stabilization/`, CLI `flaky-stab`. |
+| Q1 | Plugin name stays `flaky-stabilization`? | **Yes** — manifest name, package `flaky_stabilization`, data dir `<hermes_home>/flaky-stabilization/`, CLI `flaky-stab`. *(Originally answered as `hermes-flaky-stabilization`; renamed on 2026-07-26 to follow the repository rename — see the note below.)* |
 | Q2 | Build net-new `jira_create_incident` write tool? | **Yes, build it, ship disabled** — `jira.enable_write: false` default, `check_fn` hides it without `JIRA_API_TOKEN`, approval-escalated via `pre_tool_call`, PII-gated (D6/D7). |
 | Q3 | License MIT? | **Yes** — keep the project metadata consistent with the repo's MIT LICENSE. |
 | Q4 | Keep `test-history` CLI alias? | **Yes** — `hermes test-history ingest|status|prune|rebuild-fts|config` unchanged (D2). |
@@ -42,7 +42,7 @@ Alternative rejected: keeping `hermes-test-history` as an external dependency wo
 two-plugin install, cross-repo version skew, and no way to fix the enrichment bug internally.
 
 **D3 — Internal architecture: per-stage packages + a thin orchestrator.** One importable package
-`hermes_flaky_stabilization` (with the proven root-shim `__init__.py` pattern from
+`flaky_stabilization` (with the proven root-shim `__init__.py` pattern from
 bug-report-improver so the hyphenated plugin dir loads under Hermes and plain pytest alike).
 Stage subpackages preserve each plugin's ports-and-adapters shape — **only the top-level
 `__init__.py` and `registration.py` may import Hermes**; stages receive `llm`, `dispatch_tool`,
@@ -154,3 +154,17 @@ the residual SSRF risk is low. If defense-in-depth here is ever wanted, the corr
 through `safehttp`'s guarded opener with RFC1918 **allowed** (keeping the loopback/link-local/
 cloud-metadata blocks and connect-time IP pinning), so GHE keeps working while
 `169.254.169.254`/loopback targets are still refused.
+
+## Repository rename (2026-07-26)
+
+The GitHub repository was renamed `hermes-flaky-stabilization` → `flaky-stabilization`, and every
+identifier that carried the old name was renamed with it, so the four names that used to diverge now
+agree: GitHub slug `sergiparpal/flaky-stabilization`, plugin manifest name `flaky-stabilization`,
+distribution name `flaky-stabilization`, and import package `flaky_stabilization`. The data
+directory (`<hermes_home>/flaky-stabilization/`) and the `flaky-stab` CLI were already unprefixed
+and are unchanged.
+
+This is **breaking for existing installs** — the plugin id in `plugins.enabled`, the plugin
+directory under `~/.hermes/plugins/`, the qualified skill name (`hermes-flaky-stabilization:
+flaky-healer` → `flaky-stabilization:flaky-healer`), the `pip install` name, and the import path all
+changed. Reinstall and re-enable under the new name; no data migration is needed.
