@@ -155,6 +155,25 @@ through `safehttp`'s guarded opener with RFC1918 **allowed** (keeping the loopba
 cloud-metadata blocks and connect-time IP pinning), so GHE keeps working while
 `169.254.169.254`/loopback targets are still refused.
 
+## Healer-scope decision (2026-07-26, answered by sergiparpal)
+
+**H1 — The healer is the plugin's differentiator; it is core and will grow.** The question:
+the healer is ~4.9k LOC (about a third of the codebase), needs Docker to be at its best, and most
+of its value ships in the default `suggest` mode — commit to it, freeze it, or defer? Answer:
+**commit as differentiator**. Consequences: the docker-marked hardening tests added alongside this
+decision (network egress blocked inside the container, the original tree untouched after a
+sandboxed run, docker infra exit codes 125/126/127 surfacing as `SandboxError`) are the start of
+CI coverage that grows with the healer, the `docker-tests` CI job keeps the real-daemon path
+exercised on every push, and healer scope (new strategies, recipes, sandbox backends) may grow
+without reopening this decision. Alternatives rejected: freezing scope (maintenance-only) and
+deferring the question.
+
+Related: the same improvement branch added one-shot deprecation warnings for the legacy
+env/config fallbacks (`FLAKY_HEALER_*`, `HERMES_CI_TRIAGE_*`, `JIRA_BASE_URL`/`JIRA_EMAIL`,
+`HERMES_JIRA_STRICT_REDACTION`, and the legacy `test-history/config.json` precedence level).
+Their removal at 1.0 is pre-approved: README.md and MIGRATION.md already document them as
+"deprecated, removed at 1.0".
+
 ## Repository rename (2026-07-26)
 
 The GitHub repository was renamed `hermes-flaky-stabilization` → `flaky-stabilization`, and every
