@@ -58,6 +58,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Healer data-dir resolution now delegates to the unified hermes-home resolver
+  (host helpers, then an *expanded* `$HERMES_HOME`, then `~/.hermes`). The raw
+  env read it used meant a crontab/EnvironmentFile-style `HERMES_HOME=~/...`
+  (no shell expansion) sent the healer's patches — and the `state.db` its
+  audit/recipe store derives from the data dir — to a literal `./~...`
+  directory while every other stage resolved the real home. `ctx.hermes_home`
+  and `$FLAKY_HEALER_DATA_DIR` still take precedence, and the flat legacy
+  import context keeps the historical env-only fallback.
 - Sandbox spec selection: both sandbox backends passed the target spec after a
   `--` terminator, which Playwright's CLI silently drops from the positional
   filter — every "single test" reproduce/burn-in run actually executed the

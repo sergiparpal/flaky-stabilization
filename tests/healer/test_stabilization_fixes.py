@@ -478,6 +478,37 @@ class TestUnifiedConfigWiring:
 # --- coordination: SandboxError becomes a clean report error -----------------
 
 
+class TestDataDirHomeExpansion:
+    """`HERMES_HOME=~/...` (crontab/EnvironmentFile style, no shell expansion)
+    must resolve through the unified resolver — the raw env read used to send
+    the healer's data dir (and the state.db `_store_for` derives from it) to a
+    literal `./~...` directory while every other stage used the real home."""
+
+    def test_tilde_hermes_home_expands_like_the_unified_resolver(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.delenv("FLAKY_HEALER_DATA_DIR", raising=False)
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("HERMES_HOME", "~/hermes-data")
+        base = healer_config.data_dir(None)
+        assert base == tmp_path / "hermes-data" / "flaky-stabilization"
+        assert base.is_dir()
+        from flaky_stabilization import paths
+
+        assert base == paths.get_hermes_home() / "flaky-stabilization"
+
+    def test_ctx_hermes_home_still_wins(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("FLAKY_HEALER_DATA_DIR", raising=False)
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path / "env-home"))
+
+        class Ctx:
+            hermes_home = str(tmp_path / "ctx-home")
+
+        assert healer_config.data_dir(Ctx()) == (
+            tmp_path / "ctx-home" / "flaky-stabilization"
+        )
+
+
 class TestSandboxErrorMapping:
     class _BoomSandbox:
         isolation = "docker"

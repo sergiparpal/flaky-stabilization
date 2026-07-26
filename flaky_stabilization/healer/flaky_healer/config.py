@@ -146,6 +146,25 @@ def _cfg_str(key: str) -> str | None:
     return None
 
 
+def _resolve_hermes_home_root() -> Path:
+    """The ctx-free Hermes home, via the unified resolver when importable.
+
+    ``paths.get_hermes_home()`` is the ONE resolver (host helpers, then an
+    expanded ``$HERMES_HOME``, then ``~/.hermes``). Reading the env var raw here
+    used to skip its ``expanduser``/``expandvars`` step, so a crontab-style
+    ``HERMES_HOME=~/hermes-data`` sent the healer's data dir — and the
+    ``state.db`` ``_store_for`` derives from it — to a literal ``./~`` directory
+    while every other stage resolved the real home. The flat legacy import
+    context (no unified package) keeps the historical raw-env fallback.
+    """
+    try:
+        from flaky_stabilization import paths as unified_paths
+    except Exception:  # pragma: no cover — flat import context without the package
+        hermes_home = os.environ.get("HERMES_HOME")
+        return Path(hermes_home) if hermes_home else Path.home() / ".hermes"
+    return unified_paths.get_hermes_home()
+
+
 def data_dir(ctx=None) -> Path:
     """Profile-aware persistent data dir, created on demand.
 
@@ -155,7 +174,8 @@ def data_dir(ctx=None) -> Path:
     ``patches/``, the ``learned-patterns.md`` mirror beside them). The
     ``$FLAKY_HEALER_DATA_DIR`` override keeps working and preserves any legacy
     location. Resolution order: $FLAKY_HEALER_DATA_DIR → ctx.hermes_home →
-    $HERMES_HOME → ~/.hermes, then ``/flaky-stabilization``.
+    the unified home resolver (host helpers / expanded $HERMES_HOME /
+    ~/.hermes), then ``/flaky-stabilization``.
     """
     env = os.environ.get(ENV_DATA_DIR)
     if env:
@@ -164,8 +184,8 @@ def data_dir(ctx=None) -> Path:
             "the default <hermes_home>/flaky-stabilization data directory")
         base = Path(env)
     else:
-        hermes_home = getattr(ctx, "hermes_home", None) or os.environ.get("HERMES_HOME")
-        root = Path(hermes_home) if hermes_home else Path.home() / ".hermes"
+        hermes_home = getattr(ctx, "hermes_home", None)
+        root = Path(hermes_home) if hermes_home else _resolve_hermes_home_root()
         base = root / "flaky-stabilization"
     base.mkdir(parents=True, exist_ok=True)
     try:
