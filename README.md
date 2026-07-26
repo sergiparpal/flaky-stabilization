@@ -1,30 +1,73 @@
 # flaky-stabilization
 
-**One Hermes Agent plugin for the whole flaky-test stabilization pipeline**:
-JUnit failure history, flaky detection, CI-log triage, sandboxed healing with a
-PR-only git flow, bug-report structuring, PII gating, and a local Jira incident
-index — absorbed from seven predecessor plugins into a single `kind: standalone`
-plugin with one private state store.
+A flaky-test stabilization pipeline for Hermes Agent, packaged as one
+standalone plugin: it records test-failure history, detects flaky tests,
+triages CI logs, heals what can be healed, and structures the rest into
+actionable bug reports. The default install works out of the box — zero
+configuration, zero runtime dependencies, no credentials required.
 
-> Supersedes: `hermes-test-history`, `hermes-flaky-detective`,
-> `hermes-ci-triage`, `hermes-flaky-healer`, `hermes-bug-report-improver`,
-> `hermes-masking-validator`, `hermes-jira-incidents`. See `MIGRATION.md`.
->
-> The replaced plugins are no longer published. New installations must use
-> `flaky-stabilization`; this plugin's migration command is for
-> preserving data from existing legacy installations.
-
-## Install & enable
+## Quickstart
 
 ```bash
 hermes plugins install sergiparpal/flaky-stabilization
 hermes plugins enable flaky-stabilization
-# disable the legacy plugins first — tool names would otherwise collide:
-hermes plugins disable hermes-test-history hermes-flaky-detective hermes-ci-triage \
-  hermes-flaky-healer hermes-bug-report-improver hermes-masking-validator
-# if hermes-jira-incidents was your memory provider, unset memory.provider too.
-hermes flaky-stab migrate       # copy legacy data into state.db (sources untouched)
+hermes test-history ingest path/to/junit-reports/   # feed it JUnit XML
+hermes flaky-stab scan                              # detect flaky tests now
 ```
+
+Then ask the agent to `stabilize` a failing CI run, or call
+`/stabilize <ci-log-path>` directly. `hermes flaky-stab status` shows what
+the plugin knows; `after-install.md` walks through the first steps.
+
+Coming from the seven legacy `hermes-*` plugins? → `MIGRATION.md`.
+
+## Default-install facts
+
+* The core runtime is **standard library only** — nothing else to install.
+* A missing credential hides the individual tools that need it, **never the
+  plugin** — credentials are deliberately not manifest `requires_env`.
+* Heal mode defaults to **`suggest`** (read-only): the healer proposes a
+  sandbox-validated patch; nothing touches your repo unless you opt into PR
+  mode, and even then only via the host approval pipeline.
+* External write-back ships **disabled**: `jira.enable_write` defaults to
+  `false`, and every write path is approval-escalated.
+* The healing sandbox auto-falls-back **docker → subprocess**: with no Docker
+  daemon the weaker subprocess backend is used, which refuses PR mode unless
+  explicitly allowed.
+* The PII gate is **fail-closed**: external ticket writes require evidence
+  that is both `clean` and `complete`.
+
+## The pipeline (`stabilize_test_failure`)
+
+history → detection → triage (with test-history enrichment **and** a
+related-incidents hint from the local index), then a fork on the triage
+category:
+
+* `flaky` / `timeout` → the healer (suggest or PR mode). A stable burn-in is
+  written back into `history.db` as a synthetic run, so the next detection
+  sweep sees the recovery.
+* anything else → `improve_bug_report` → `find_duplicate_incidents` →
+  **PII gate** → `jira_create_incident` when enabled, else the redacted ticket
+  body is returned to file manually (`outcome: ticket_ready`).
+
+Every run lands in the `pipeline_runs` ledger inside `state.db`.
+
+## Optional unlocks
+
+Each is one setting away; nothing breaks without it:
+
+* `GITHUB_TOKEN` — unlocks `fetch_ci_logs` (CI-log fetching from GitHub
+  Actions); see `after-install.md`.
+* `JIRA_API_TOKEN` + `jira.base_url` — unlocks the Jira incident sync and
+  index; additionally set `jira.enable_write: true` for the
+  `jira_create_incident` write-back (see the Security model).
+* `pip install ".[ocr]"` + system `tesseract` — unlocks image-evidence
+  scanning for the PII gate (see Development).
+* `hermes flaky-stab install-cron` — nightly detection sweeps at zero LLM
+  cost (see Nightly automation).
+* PR heal mode — `heal_flaky_test` with `mode=pr` (or
+  `pipeline.default_heal_mode`) opens a pull request through the host
+  approval pipeline instead of suggesting a patch (see the Security model).
 
 ## Feature map
 
@@ -44,21 +87,6 @@ credentials are deliberately **not** manifest `requires_env`, so a missing
 token never disables the whole plugin.
 † additionally requires `jira.enable_write: true` (default **false**) and is
 approval-escalated on every call.
-
-### The pipeline (`stabilize_test_failure`)
-
-history → detection → triage (with test-history enrichment **and** a
-related-incidents hint from the local index), then a fork on the triage
-category:
-
-* `flaky` / `timeout` → the healer (suggest or PR mode). A stable burn-in is
-  written back into `history.db` as a synthetic run, so the next detection
-  sweep sees the recovery.
-* anything else → `improve_bug_report` → `find_duplicate_incidents` →
-  **PII gate** → `jira_create_incident` when enabled, else the redacted ticket
-  body is returned to file manually (`outcome: ticket_ready`).
-
-Every run lands in the `pipeline_runs` ledger inside `state.db`.
 
 ## Storage
 
@@ -186,6 +214,25 @@ python -m pip install ".[ocr]"
 Without both the Python extra and `tesseract`, image files are reported as
 `ocr_unavailable`; that makes a PII-gated write incomplete rather than
 silently passing the image.
+
+## Migrating from the legacy plugins
+
+This plugin supersedes `hermes-test-history`, `hermes-flaky-detective`,
+`hermes-ci-triage`, `hermes-flaky-healer`, `hermes-bug-report-improver`,
+`hermes-masking-validator`, and `hermes-jira-incidents` — seven predecessor
+plugins absorbed into a single `kind: standalone` plugin with one private
+state store. The replaced plugins are no longer published; new installations
+must use `flaky-stabilization`, and the migration command exists only to
+preserve data from existing legacy installations. See `MIGRATION.md` for the
+full procedure. In short — disable the legacy plugins first (tool names would
+otherwise collide in the registry):
+
+```bash
+hermes plugins disable hermes-test-history hermes-flaky-detective hermes-ci-triage \
+  hermes-flaky-healer hermes-bug-report-improver hermes-masking-validator
+# if hermes-jira-incidents was your memory provider, unset memory.provider too.
+hermes flaky-stab migrate       # copy legacy data into state.db (sources untouched)
+```
 
 ## License
 
