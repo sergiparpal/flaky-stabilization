@@ -29,7 +29,7 @@ except ImportError:  # pragma: no cover - non-POSIX
     resource = None
 
 from .. import config
-from .base import PLAYWRIGHT_ARGS, RunResult, SandboxError, execute_phase, tail
+from .base import PLAYWRIGHT_ARGS, RunResult, SandboxError, execute_phase, spec_arg, tail
 
 _OUTPUT_TAIL_BYTES = 64 * 1024
 
@@ -156,9 +156,11 @@ class SubprocessSandbox:
         return env
 
     def _run_once(self, work: Path, home: Path, test_id: str, timeout_s: int) -> RunResult:
-        # `--` after the flags terminates option parsing so a flag-shaped
-        # test_id (`--reporter=…`) is treated as a positional spec, not an option.
-        cmd = [*_netns_prefix(), "npx", "playwright", "test", *PLAYWRIGHT_ARGS, "--", test_id]
+        # No `--` before the spec: playwright drops `--`-terminated args from
+        # the positional filter and would run the whole suite. spec_arg
+        # refuses a flag-shaped test_id instead.
+        spec = spec_arg(test_id)
+        cmd = [*_netns_prefix(), "npx", "playwright", "test", *PLAYWRIGHT_ARGS, spec]
         start = time.monotonic()
         try:
             proc = subprocess.Popen(

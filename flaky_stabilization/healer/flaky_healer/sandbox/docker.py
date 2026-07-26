@@ -21,6 +21,7 @@ from .base import (
     RunResult,
     SandboxError,
     execute_phase,
+    spec_arg,
     tail,
 )
 from .subproc import _bounded_wait
@@ -80,12 +81,10 @@ class DockerSandbox:
             "playwright",
             "test",
             *PLAYWRIGHT_ARGS,
-            # `--` terminates option parsing (all our flags precede it) so a
-            # test_id shaped like a flag (e.g. `--reporter=…`) is treated as a
-            # positional spec, not an option. test_id is already confined to an
-            # existing repo file by the healer, so this is belt-and-suspenders.
-            "--",
-            test_id,
+            # No `--` before the spec: playwright drops `--`-terminated args
+            # from the positional filter and would run the whole suite.
+            # spec_arg refuses a flag-shaped test_id instead.
+            spec_arg(test_id),
         ]
         return cmd
 

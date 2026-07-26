@@ -18,6 +18,22 @@ from .. import config
 # project's own playwright config.
 PLAYWRIGHT_ARGS = ("--reporter=line", "--workers=1", "--retries=0", "--trace=off")
 
+
+def spec_arg(test_id: str) -> str:
+    """*test_id* vetted for use as a positional Playwright spec argument.
+
+    Playwright's CLI does not treat arguments after a ``--`` terminator as
+    positional test filters — they are silently dropped and the WHOLE suite
+    runs, which poisons reproduce/burn-in verdicts with unrelated failures.
+    So the old ``--`` guard cannot be used; instead a flag-shaped test_id
+    (e.g. ``--reporter=…``) is refused outright. The healer already confines
+    test_id to an existing repo file, so this keeps the same belt-and-
+    suspenders intent without breaking spec selection.
+    """
+    if test_id.startswith("-"):
+        raise SandboxError(f"refusing flag-shaped test id {test_id!r}")
+    return test_id
+
 # Name-based excludes for project copies: VCS, prior artifacts, caches.
 COPY_EXCLUDES = {
     ".git",

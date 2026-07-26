@@ -48,6 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Sandbox spec selection: both sandbox backends passed the target spec after a
+  `--` terminator, which Playwright's CLI silently drops from the positional
+  filter — every "single test" reproduce/burn-in run actually executed the
+  whole suite, so unrelated failures could poison heal verdicts. Found by the
+  new docker CI job on its first run. The spec is now a plain positional and a
+  flag-shaped test id is refused outright (same injection guard, working
+  selection).
 - Cleared the suppressed lint debt in source packages (`B904` exception
   chaining, one `B905` `zip(strict=)`, `E501` overlong lines) and dropped the
   stale `flaky_stabilization/*` per-file-ignores from `pyproject.toml`;

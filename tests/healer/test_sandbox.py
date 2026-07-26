@@ -81,6 +81,18 @@ class TestDockerCommand:
         env_args = [cmd[i + 1] for i, a in enumerate(cmd) if a == "-e"]
         assert env_args == ["CI=1", "HOME=/tmp"]
 
+    def test_spec_is_positional_without_double_dash(self, tmp_path):
+        # A `--` before the spec makes playwright drop the filter and run the
+        # WHOLE suite (found by the docker CI job); the spec must be a plain
+        # trailing positional.
+        cmd = DockerSandbox().build_command(tmp_path, "tests/stable.spec.ts", "cname")
+        assert "--" not in cmd
+        assert cmd[-1] == "tests/stable.spec.ts"
+
+    def test_flag_shaped_test_id_refused(self, tmp_path):
+        with pytest.raises(SandboxError, match="flag-shaped"):
+            DockerSandbox().build_command(tmp_path, "--reporter=evil", "cname")
+
 
 class TestSubprocessEnvScrub:
     def test_env_built_from_scratch(self, monkeypatch, tmp_path):
@@ -102,6 +114,12 @@ class TestSubprocessEnvScrub:
         env = SubprocessSandbox().build_env(tmp_path)
         assert env["LD_LIBRARY_PATH"] == "/custom/libs"
         assert "NOT_LISTED" not in env
+
+
+class TestSubprocessSpecSelection:
+    def test_flag_shaped_test_id_refused_before_launch(self, tmp_path):
+        with pytest.raises(SandboxError, match="flag-shaped"):
+            SubprocessSandbox()._run_once(tmp_path, tmp_path, "--reporter=evil", 1)
 
 
 class TestCopyProject:
