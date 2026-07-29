@@ -14,8 +14,7 @@ guide is for moving data and configuration from an existing installation.
    disabled first:
 
    ```bash
-   hermes plugins install sergiparpal/flaky-stabilization
-   hermes plugins enable flaky-stabilization
+   hermes plugins install sergiparpal/flaky-stabilization --enable
    hermes plugins disable hermes-test-history hermes-flaky-detective \
      hermes-ci-triage hermes-flaky-healer hermes-bug-report-improver \
      hermes-masking-validator
