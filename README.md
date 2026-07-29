@@ -1,4 +1,4 @@
-# flaky-stabilization
+# Flaky Stabilization
 
 A flaky-test stabilization pipeline for Hermes Agent, packaged as one
 standalone plugin: it records test-failure history, detects flaky tests,
