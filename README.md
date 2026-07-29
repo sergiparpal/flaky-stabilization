@@ -9,8 +9,7 @@ configuration, zero runtime dependencies, no credentials required.
 ## Quickstart
 
 ```bash
-hermes plugins install sergiparpal/flaky-stabilization
-hermes plugins enable flaky-stabilization
+hermes plugins install sergiparpal/flaky-stabilization --enable
 hermes test-history ingest path/to/junit-reports/   # feed it JUnit XML
 hermes flaky-stab scan                              # detect flaky tests now
 ```

@@ -1,6 +1,7 @@
 # flaky-stabilization — first steps
 
-1. **Enable it** (standalone plugins are opt-in):
+1. **Enable it** — skip this if you installed with `--enable`; standalone
+   plugins are otherwise opt-in:
 
    ```bash
    hermes plugins enable flaky-stabilization
