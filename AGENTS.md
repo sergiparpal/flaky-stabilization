@@ -64,6 +64,23 @@ Recent commits use short imperative subjects such as `Add LICENSE file` or scope
 user/developer impact, linked issues, and validation performed. Include screenshots only for
 visible output changes and call out schema, migration, credential, PII, or external-write effects.
 
+`main` is protected by a branch ruleset: **direct pushes are rejected**, and merging requires the
+`ci-complete` status check to pass. So the loop is branch, push, open a PR, let CI go green, merge.
+Review approvals are **not** required (the count is 0) — a solo change stays a one-person
+operation, gated by CI rather than by a second pair of eyes.
+
+`ci-complete` is a single aggregating job that fails unless `lint`, `tests`, `docker-tests`, and
+`build` all succeeded. **Any new job must be added to its `needs:` list**, or it silently stops
+gating anything. The ruleset requires that one stable name rather than the individual matrix legs
+on purpose: a dropped Python version would otherwise become a required check that never reports
+again and would block every merge permanently.
+
+GitHub Actions are pinned to **full commit SHAs** with a trailing `# vX.Y.Z` comment, never to tags
+— a tag can be repointed by its upstream owner, a commit SHA cannot. Keep new `uses:` lines pinned
+the same way, and keep `permissions: contents: read`, `persist-credentials: false`, and per-job
+`timeout-minutes` in place. This posture is shared across all six plugin repositories in this
+account.
+
 ## Security & Configuration
 
 Never commit tokens, local databases, or incident/test evidence containing PII. Keep
