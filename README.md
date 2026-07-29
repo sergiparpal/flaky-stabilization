@@ -298,5 +298,3 @@ hermes flaky-stab migrate       # copy legacy data into state.db (sources untouc
 ## License
 
 MIT License. See `LICENSE`.
-
-Release history: see [`CHANGELOG.md`](CHANGELOG.md).
