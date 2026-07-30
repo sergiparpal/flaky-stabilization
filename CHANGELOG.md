@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-07-30
+
+Repository infrastructure and documentation. No runtime code changed — the
+plugin behaves identically to 0.2.0; only the version strings moved.
+
+### Added
+
+- Dependabot updates for `pip` and `github-actions`, weekly, capped at five
+  open pull requests per ecosystem. The actions ecosystem is the one that
+  matters here: workflow `uses:` lines are pinned to full commit SHAs, so
+  without Dependabot a pinned action never picks up an upstream security fix.
+- `ci-complete`, a single aggregating CI job that fails unless `lint`, `tests`,
+  `docker-tests`, and `build` all succeeded. `main`'s branch ruleset requires
+  this one stable check name rather than the individual matrix legs: a dropped
+  Python version would otherwise leave behind a required check that never
+  reports again and blocks every merge permanently. Any new job must be added
+  to its `needs:` list or it silently stops gating anything.
+- `SECURITY.md`: private vulnerability reporting through GitHub Security
+  Advisories, a 7-day initial response target, and a scope section pointing
+  reviewers at sandbox containment, command construction, the `scripts/` Jira
+  sync, and the dependency surface — the parts that matter in a tool that
+  executes the target project's test suite.
+- `AGENTS.md` now documents the `main` branch ruleset and the CI gating
+  convention: direct pushes are rejected, merges require `ci-complete`, review
+  approvals are not required, and actions stay pinned to full commit SHAs.
+
+### Changed
+
+- Install docs collapse install and enable into one `hermes plugins install
+  sergiparpal/flaky-stabilization --enable` invocation (README, `MIGRATION.md`,
+  `after-install.md`).
+- README title reads "Flaky Stabilization"; the redundant release-history
+  pointer at the foot of the README is gone.
+
+### Fixed
+
+- The `ci-complete` job was missing `timeout-minutes`, the one job in the
+  workflow without it.
+
 ## [0.2.0] — 2026-07-26
 
 Repository rename, CI, and the legacy-config deprecation path.
@@ -207,7 +246,8 @@ First release.
 - Cron installer (`install-cron`), unified `config.json`, and the fail-closed
   PII gate over evidence files.
 
-[Unreleased]: https://github.com/sergiparpal/flaky-stabilization/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/sergiparpal/flaky-stabilization/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/sergiparpal/flaky-stabilization/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/sergiparpal/flaky-stabilization/compare/v0.1.2...v0.2.0
 [0.1.2]: https://github.com/sergiparpal/flaky-stabilization/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/sergiparpal/flaky-stabilization/compare/v0.1.0...v0.1.1
