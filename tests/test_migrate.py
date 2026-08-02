@@ -401,7 +401,7 @@ def test_cli_migrate_and_status(legacy_home, capsys):
     assert "JIRA_API_TOKEN set: False" in status
 
 
-def test_install_cron_with_jira_sync(profile_env, monkeypatch, capsys):
+def test_install_cron_with_jira_sync(profile_env, hermes_on_path, monkeypatch, capsys):
     import argparse
     from types import SimpleNamespace
 

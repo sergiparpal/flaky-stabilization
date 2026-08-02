@@ -4,7 +4,7 @@ One top-level command mounting the stage subcommands:
 
 * history-owned:   ``ingest``, ``prune``, ``rebuild-fts``, ``config``
   (also re-exposed unchanged under the ``test-history`` alias — plan D2)
-* detective-owned: ``scan``, ``list``, ``install-cron``
+* detective-owned: ``scan``, ``list``, ``is-flaky``, ``install-cron``
 * unified:         ``status`` (this module) — later phases add ``jira`` and
   ``migrate``.
 
@@ -29,7 +29,7 @@ SUBCOMMAND_DEST = "flaky_stab_cmd"
 # module's own `command_handlers()` table — this module names only the SUBSET it
 # re-exposes (the stage `status` commands are shadowed by the unified one below).
 _HISTORY_COMMANDS = ("ingest", "prune", "rebuild-fts", "config")
-_DETECTIVE_COMMANDS = ("scan", "list", "install-cron")
+_DETECTIVE_COMMANDS = ("scan", "list", "is-flaky", "install-cron")
 
 
 def setup_cli(parser) -> None:
@@ -55,6 +55,8 @@ def setup_cli(parser) -> None:
     detective_cli.add_scan_args(subs.add_parser(
         "scan", help="Detect flaky tests, persist verdicts, and report"))
     detective_cli.add_list_args(subs.add_parser("list", help="List stored flaky verdicts"))
+    detective_cli.add_is_flaky_args(subs.add_parser(
+        "is-flaky", help="Report the stored verdict for one test (for CI gates)"))
 
     p_cron = subs.add_parser("install-cron",
                              help="Install the nightly no-agent detection job")
@@ -162,7 +164,8 @@ JIRA_SYNC_JOB = "flaky-stabilization-jira-sync"
 def _jira_sync_job() -> cronjobs.CronJob:
     """This job's identity, read from the globals at CALL time (mirrors
     ``detective.cli._scan_job``, which tests monkeypatch)."""
-    return cronjobs.CronJob(JIRA_SYNC_SHIM, JIRA_SYNC_JOB, "jira-sync job")
+    return cronjobs.CronJob(JIRA_SYNC_SHIM, JIRA_SYNC_JOB, "jira-sync job",
+                            command=("jira", "sync", "--quiet"))
 
 
 def _install_jira_sync_job(args) -> int:

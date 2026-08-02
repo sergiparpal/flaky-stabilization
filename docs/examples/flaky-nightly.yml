@@ -1,0 +1,82 @@
+# Nightly flaky-test detection — the WRITER of the shared cache.
+#
+# Copy this into `.github/workflows/` in your own repository. It runs on a
+# schedule, ingests the JUnit XML your test job produced, scans for flaky tests,
+# and appends the report to the run summary.
+#
+# State lives in `.flaky/` and is carried between runs by actions/cache. The
+# detection window is 14 days and GitHub evicts a cache only after 7 days
+# without a hit, so an active repository never loses it — and durability past
+# the window buys nothing the detector reads.
+name: Flaky nightly
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Ingest and scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Restore first, save at the end of the job: the key is unique per run, so
+      # every night writes a fresh entry that the restore-keys prefix finds
+      # tomorrow. `main` is the writer; PR jobs (see flaky-pr-gate.yml) read it.
+      - name: Restore the flaky-detection state
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .flaky/
+          key: flaky-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            flaky-${{ github.ref_name }}-
+            flaky-main-
+
+      # Replace this with whatever produces your JUnit XML. The point is that
+      # the files exist before the ingest step; a failing test suite must not
+      # stop the ingest, which is what `if: always()` is for.
+      - name: Run the test suite
+        if: always()
+        run: echo "run your tests here, writing JUnit XML into reports/"
+
+      - name: Ingest the JUnit results
+        if: always()
+        uses: sergiparpal/flaky-stabilization@v0.2.1
+        with:
+          command: ingest
+          junit-path: reports/**/*.xml
+
+      - name: Scan for flaky tests
+        id: scan
+        if: always()
+        uses: sergiparpal/flaky-stabilization@v0.2.1
+        with:
+          command: scan
+
+      - name: Append the report to the run summary
+        if: always()
+        env:
+          # Through the environment, never `${{ }}` inside the script: test names
+          # come from your own test artifacts and are untrusted input.
+          SCAN_JSON: ${{ steps.scan.outputs.result-json }}
+          FLAKY_COUNT: ${{ steps.scan.outputs.flaky-count }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## Flaky-test scan"
+            echo
+            echo "Flaky tests detected: ${FLAKY_COUNT:-unknown}"
+            echo
+            echo '```json'
+            printf '%s\n' "$SCAN_JSON" | jq '.verdicts | map(select(.status == "flaky"))'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

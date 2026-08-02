@@ -100,10 +100,12 @@ Both databases refuse a schema version newer than this installed plugin
 supports. Upgrade the plugin before opening a newer database; do not point an
 older build at it.
 
-`<hermes_home>` is resolved by one shared resolver, in order: the host's own
-helpers, then `$HERMES_HOME` (expanded — `~` and `$VAR` are honoured, so a
-crontab-style `HERMES_HOME=~/hermes-data` works), then `~/.hermes`. Every
-stage delegates to it, so config and storage always land on one profile.
+`<hermes_home>` is resolved by one shared resolver, in order: `$FLAKY_STAB_HOME`
+(the standalone CLI's explicit override — see below), the host's own helpers,
+then `$HERMES_HOME`, then `~/.hermes`. Both env vars are expanded — `~` and
+`$VAR` are honoured, so a crontab-style `FLAKY_STAB_HOME=~/flaky-state` works.
+Every stage delegates to it, so config and storage always land on one profile,
+whichever entry point wrote them.
 
 ## Configuration
 
@@ -140,6 +142,9 @@ Secrets live **only** in the environment, never in the config file:
 
 Precedence: env var > `config.json` section > (for `history` only) the legacy
 `test-history/config.json` > built-in default.
+
+`FLAKY_STAB_HOME` and `HERMES_HOME` are not config overrides — they select the
+profile root everything else is resolved against (see **Storage** above).
 
 **Deprecated — removed at 1.0.** Every legacy override has a `config.json` key
 to move to, and each use logs one warning per process naming that key (logger
@@ -237,6 +242,63 @@ categories (single source of truth: `flaky_stabilization/triage/taxonomy.py`):
 | `flaky` | Intermittent, non-deterministic failure (race, ordering, external service blip) | Send it to the healer; quarantine or retry |
 | `infra` | CI infrastructure failure (runner died, network partition, disk full, registry down) | Retry; escalate to infra |
 
+## Standalone CLI
+
+The detection half runs without Hermes Agent. Install the package and use the
+`flaky-stab` binary directly:
+
+```bash
+python -m pip install "git+https://github.com/sergiparpal/flaky-stabilization"
+```
+
+```bash
+export FLAKY_STAB_HOME=~/flaky-state        # where history.db and state.db live
+flaky-stab ingest path/to/junit-reports/    # a file, or a directory (recursive)
+flaky-stab scan --format json               # detect flaky tests and persist verdicts
+flaky-stab is-flaky "pkg.Mod::test_login"   # the verdict for one test
+```
+
+Subcommands: `status`, `ingest`, `prune`, `rebuild-fts`, `config`, `scan`,
+`list`, `is-flaky`, `install-cron`, `jira`, `migrate`. None of them needs a
+model. `python -m flaky_stabilization <subcommand>` works identically.
+
+`FLAKY_STAB_HOME` outranks every other lookup, so it also works on a machine
+that has Hermes installed — useful for pointing a CI job or a throwaway profile
+somewhere other than the agent's profile. Leave it unset inside Hermes and
+nothing changes.
+
+**Healing, triage, and bug-report structuring require Hermes.** They need a
+model (`ctx.llm`), and the PR flow needs the host's approval pipeline; the CLI
+deliberately exposes no path to them. What the CLI gives you is the history and
+the verdicts.
+
+Errors go to stderr, reports to stdout, and failure is signalled by the exit
+code — a no-agent cron job delivers stdout verbatim as its report. `is-flaky`
+exits `0` whatever the verdict (`1` for an unreadable database, `2` for a bad
+`test_id`), so a gate can never mistake a broken database for "not flaky".
+
+## GitHub Action
+
+`action.yml` in this repository is a composite action wrapping the same three
+commands:
+
+```yaml
+- uses: sergiparpal/flaky-stabilization@v0.2.1
+  with:
+    command: is-flaky
+    test-id: pkg.Mod::test_login
+```
+
+Inputs: `command` (`ingest` | `scan` | `is-flaky`), `junit-path`, `test-id`,
+`state-dir` (default `.flaky`, exported as `FLAKY_STAB_HOME`), `python-version`,
+`format`. Outputs: `is-flaky`, `result-json`, `flaky-count`.
+
+Two copy-paste workflows live in [`docs/examples/`](docs/examples): a nightly
+ingest-and-scan job that persists `.flaky/` with `actions/cache`, and a
+pull-request job that annotates known flaky failures. Read the second one's
+header before using it — it annotates, and must not be what decides whether a
+pull request merges.
+
 ## Nightly automation
 
 ```bash
@@ -254,6 +316,12 @@ full sync short, its checkpoint is retained: re-run the same `sync --full`
 command to resume safely; deletion happens only after the complete sweep. A
 failed or timed-out automatic cron creation prints the manual command and
 exits non-zero. The gateway daemon must be running for jobs to fire.
+
+With no `hermes` on `PATH`, `flaky-stab install-cron` degrades instead of
+printing a command you cannot run: the installed shim execs `flaky-stab` and
+the printed command becomes a plain crontab line for `crontab -e`. Set
+`FLAKY_STAB_HOME` in the crontab too if your data lives outside `~/.hermes` —
+cron does not read your shell profile.
 
 ## Development
 

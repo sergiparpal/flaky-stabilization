@@ -7,6 +7,16 @@ Runtime code lives in `flaky_stabilization/`. Feature stages are separated into
 `orchestrator/` composes them, `storage/` owns SQLite infrastructure, and `common/` is the
 dependency-light kernel. Keep Hermes-facing wiring in `registration.py` and `cli.py`.
 
+There are **two composition roots**. `registration.py` composes the plugin onto a Hermes
+`PluginContext`; `__main__.py` composes the same stage CLIs onto a plain argparse parser for the
+standalone `flaky-stab` binary. The Hermes rule applies to it in reverse: `__main__.py` must
+**never** import a Hermes surface, not even lazily — `tests/test_import_boundaries.py` enforces
+that, and the point of the binary is that it runs where Hermes is not installed. Both roots drive
+one `state.db` through one migration ladder; `tests/test_composition_roots.py` pins them to the
+same schema version and the same paths. `action.yml` (the composite GitHub Action) and
+`docs/examples/` wrap the standalone root — consumer workflows live in `docs/examples/`, never in
+`.github/workflows/`, which would run them against this repository.
+
 Tests mirror the package under `tests/<stage>/`. Cross-stage and integration checks live directly
 under `tests/` and `tests/integration/`; stable tool contracts are captured in `tests/snapshots/`.
 Operational scripts are in `scripts/`, plugin metadata is in `plugin.yaml`, and design records are
@@ -49,13 +59,15 @@ credentials. Maintain at least 85% coverage:
 bash scripts/run_tests.sh -- --cov=flaky_stabilization --cov-fail-under=85
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs four jobs on push and pull request: `lint`
+GitHub Actions (`.github/workflows/ci.yml`) runs five jobs on push and pull request: `lint`
 (`ruff check .`), `tests` (the offline suite on Python 3.11/3.12/3.13 with the 85% coverage gate),
 `docker-tests` (the docker-marked sandbox tests against a real daemon —
 `bash scripts/run_tests.sh tests/healer -- -m docker -vv`, which needs the toy-app fixture
-dependencies installed), and `build` (wheel build plus a smoke install that imports
-`flaky_stabilization.register`). Run the lint and offline commands locally before pushing; the
-docker job is the one that catches sandbox regressions the offline suite cannot.
+dependencies installed), `build` (wheel build plus a smoke install that imports
+`flaky_stabilization.register`), and `action-smoke` (the composite action run end to end against a
+JUnit fixture — the only check that exercises `action.yml`, which no unit test can). Run the lint
+and offline commands locally before pushing; the docker job is the one that catches sandbox
+regressions the offline suite cannot.
 
 ## Commit & Pull Request Guidelines
 
@@ -69,8 +81,8 @@ visible output changes and call out schema, migration, credential, PII, or exter
 Review approvals are **not** required (the count is 0) — a solo change stays a one-person
 operation, gated by CI rather than by a second pair of eyes.
 
-`ci-complete` is a single aggregating job that fails unless `lint`, `tests`, `docker-tests`, and
-`build` all succeeded. **Any new job must be added to its `needs:` list**, or it silently stops
+`ci-complete` is a single aggregating job that fails unless `lint`, `tests`, `docker-tests`,
+`build`, and `action-smoke` all succeeded. **Any new job must be added to its `needs:` list**, or it silently stops
 gating anything. The ruleset requires that one stable name rather than the individual matrix legs
 on purpose: a dropped Python version would otherwise become a required check that never reports
 again and would block every merge permanently.

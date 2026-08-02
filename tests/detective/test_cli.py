@@ -299,3 +299,114 @@ def test_list_all_after_scan(profile_env, capsys):
 def test_list_empty_before_scan(profile_env, capsys):
     assert _run(["list", "--status", "flaky"]) == 0
     assert "no matching verdicts" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# is-flaky — the single-test query a CI gate makes
+# ---------------------------------------------------------------------------
+
+
+def _run_expecting_usage_error(argv):
+    """argparse exits the process on a usage error; capture the code."""
+    import pytest
+
+    with pytest.raises(SystemExit) as excinfo:
+        _run(argv)
+    return excinfo.value.code
+
+
+def test_is_flaky_json_reports_a_known_flaky_test(profile_env, capsys):
+    _seed_test_history(profile_env)
+    _run(["scan", "--format", "human"])
+    capsys.readouterr()
+
+    assert _run(["is-flaky", "pkg.Mod::test_flaky", "--format", "json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["success"] is True
+    assert payload["is_flaky"] is True
+    assert payload["status"] == domain.VERDICT_FLAKY
+    assert payload["test_key"] == "pkg.Mod::test_flaky"
+    assert payload["fails"] >= 1 and payload["runs"] >= 2
+
+
+def test_is_flaky_json_reports_a_stable_test_as_not_flaky(profile_env, capsys):
+    _seed_test_history(profile_env)
+    _run(["scan", "--format", "human"])
+    capsys.readouterr()
+
+    assert _run(["is-flaky", "pkg.Mod::test_stable", "--format", "json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["is_flaky"] is False
+    assert payload["status"] == domain.VERDICT_STABLE
+
+
+def test_is_flaky_unknown_test_is_not_an_error(profile_env, capsys):
+    """Absence of a verdict is an answer, not a failure: a PR gate asking about
+    a test nobody has scanned must get `is_flaky: false`, not exit 1."""
+    _seed_test_history(profile_env)
+    _run(["scan", "--format", "human"])
+    capsys.readouterr()
+
+    assert _run(["is-flaky", "pkg.Mod::test_never_seen", "--format", "json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["success"] is True
+    assert payload["is_flaky"] is False
+    assert payload["status"] == domain.VERDICT_UNKNOWN
+
+
+def test_is_flaky_before_any_scan_is_not_an_error(profile_env, capsys):
+    assert _run(["is-flaky", "pkg.Mod::test_flaky", "--format", "json"]) == 0
+    assert json.loads(capsys.readouterr().out)["is_flaky"] is False
+
+
+def test_is_flaky_human_format_is_one_greppable_line(profile_env, capsys):
+    _seed_test_history(profile_env)
+    _run(["scan", "--format", "human"])
+    capsys.readouterr()
+
+    assert _run(["is-flaky", "pkg.Mod::test_flaky"]) == 0
+    out = capsys.readouterr().out
+    lines = out.strip().splitlines()
+    assert len(lines) == 1, out
+    assert lines[0].startswith("flaky ")
+    assert "pkg.Mod::test_flaky" in lines[0]
+    assert "is_flaky=true" in lines[0]
+
+
+def test_is_flaky_human_format_for_an_unknown_test(profile_env, capsys):
+    assert _run(["is-flaky", "nobody-has-seen-this"]) == 0
+    line = capsys.readouterr().out.strip()
+    assert line.splitlines() == [line]
+    assert line.startswith("unknown ")
+    assert "is_flaky=false" in line
+
+
+def test_is_flaky_missing_test_id_is_a_usage_error(profile_env, capsys):
+    """Exit 2, message on stderr, stdout untouched — stdout is the cron job's
+    delivery payload."""
+    assert _run_expecting_usage_error(["is-flaky"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.strip()
+
+
+def test_is_flaky_blank_test_id_is_a_usage_error(profile_env, capsys):
+    assert _run(["is-flaky", "   "]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "test_id" in captured.err
+
+
+def test_is_flaky_internal_error_exits_one_on_stderr(profile_env, capsys, monkeypatch):
+    """A verdict of "flaky" and a broken database must not look the same to CI."""
+    import flaky_stabilization.detective as detective_pkg
+
+    def boom(_test_id):
+        return {"success": False, "error": "internal error while looking up the flaky verdict",
+                "remediation": "..."}
+
+    monkeypatch.setattr(detective_pkg, "flaky_verdict", boom)
+    assert _run(["is-flaky", "pkg.Mod::test_flaky", "--format", "json"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "internal error" in captured.err

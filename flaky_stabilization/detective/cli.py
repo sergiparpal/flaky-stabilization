@@ -5,8 +5,9 @@ Registered as a single top-level command via ``ctx.register_cli_command`` (see
 ``handle`` dispatches them, returning a process exit code.
 
 Subcommands: ``scan`` (detect + persist + report), ``status`` (resolved config +
-paths + last scan), ``list`` (the stored verdicts), and ``install-cron`` (Phase 7
-— wire the nightly no-agent job).
+paths + last scan), ``list`` (the stored verdicts), ``is-flaky`` (the verdict for
+one test — the query a CI gate needs), and ``install-cron`` (Phase 7 — wire the
+nightly no-agent job).
 """
 
 import argparse
@@ -56,6 +57,27 @@ def add_list_args(parser) -> None:
                         default="flaky", help="Which verdicts to list (default: flaky)")
 
 
+IS_FLAKY_EXIT_CODES = """\
+Exit codes (a flaky verdict is NOT a failure — read the output, not the code):
+  0  the query succeeded; the verdict is in the output
+  1  internal error (the verdicts DB could not be read); message on stderr
+  2  usage error (missing or malformed test_id); message on stderr
+"""
+
+
+def add_is_flaky_args(parser) -> None:
+    parser.add_argument("test_id",
+                        help="Test identifier: a bare test name, or "
+                             "'classname::name', or 'file_path::name'")
+    parser.add_argument("--format", choices=["human", "json"], default="human",
+                        help="Output format (default: human)")
+    # The exit-code contract is the machine-facing half of this subcommand (CI
+    # branches on the JSON, never on the exit code), so it is documented where an
+    # operator will look for it.
+    parser.epilog = IS_FLAKY_EXIT_CODES
+    parser.formatter_class = argparse.RawDescriptionHelpFormatter
+
+
 def add_install_cron_args(parser) -> None:
     parser.add_argument("--schedule", default=None, help="Cron expression (default: from config)")
     parser.add_argument("--deliver", default=None, help="Delivery channel (default: from config)")
@@ -76,6 +98,9 @@ def setup_parser(subparser) -> None:
 
     add_list_args(subs.add_parser("list", help="List stored verdicts"))
 
+    add_is_flaky_args(subs.add_parser(
+        "is-flaky", help="Report the stored verdict for one test"))
+
     add_install_cron_args(subs.add_parser(
         "install-cron", help="Install the nightly no-agent detection job"))
 
@@ -87,6 +112,7 @@ def command_handlers() -> dict[str, object]:
         "scan": _cmd_scan,
         "status": _cmd_status,
         "list": _cmd_list,
+        "is-flaky": _cmd_is_flaky,
         "install-cron": _cmd_install_cron,
     }
 
@@ -254,6 +280,66 @@ def _cmd_list(args) -> int:
 
 
 # ---------------------------------------------------------------------------
+# is-flaky — the single-test query, for CI
+# ---------------------------------------------------------------------------
+
+
+def _one_line(value) -> str:
+    """Collapse whitespace so one verdict stays one greppable line.
+
+    ``test_key`` is captured verbatim from a test artifact and is therefore
+    untrusted: a name carrying a newline would otherwise split the record in
+    two for anything reading this format line by line.
+    """
+    return " ".join(str(value).split())
+
+
+def _render_is_flaky(verdict: dict) -> str:
+    """One line per verdict: status, identity, the boolean, then the counts."""
+    parts = [
+        verdict["status"],
+        _one_line(verdict.get("test_key") or verdict["test_id"]),
+        f"is_flaky={'true' if verdict['is_flaky'] else 'false'}",
+    ]
+    if verdict.get("runs") is None:
+        parts.append("(no verdict on record)")
+    else:
+        parts.append(f"[{verdict['fails']} fail / {verdict['passes']} pass "
+                     f"of {verdict['runs']}]")
+        parts.append(f"last_failure={_one_line(verdict.get('last_failure') or '-')}")
+    return "  ".join(parts)
+
+
+def _cmd_is_flaky(args) -> int:
+    """Report the stored verdict for one test. See :data:`IS_FLAKY_EXIT_CODES`.
+
+    "Is this test flaky?" is a question, not a check: a flaky verdict exits 0
+    like any other answer, and the caller branches on the payload. Conflating
+    the two would make a PR gate that fails the build on a known flake — the
+    exact thing this subcommand exists to avoid.
+    """
+    from . import flaky_verdict, validate_test_id  # the public port, never _handle_is_flaky
+
+    try:
+        test_id = validate_test_id(args.test_id)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    verdict = flaky_verdict(test_id)
+    if not verdict.get("success"):
+        # The port logs the detail server-side and returns a generic message.
+        print(f"error: {verdict.get('error', 'is-flaky lookup failed')}", file=sys.stderr)
+        return 1
+
+    if args.format == "json":
+        print(json.dumps(verdict, indent=2, ensure_ascii=False))
+    else:
+        print(_render_is_flaky(verdict))
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # install-cron (Phase 7)
 # ---------------------------------------------------------------------------
 
@@ -265,7 +351,8 @@ CRON_JOB_NAME = "flaky-stabilization"
 def _scan_job() -> cronjobs.CronJob:
     """This module's job identity, read from the globals at CALL time (tests
     monkeypatch ``SHIM_NAME`` to simulate a missing shim source)."""
-    return cronjobs.CronJob(SHIM_NAME, CRON_JOB_NAME, "cron job")
+    return cronjobs.CronJob(SHIM_NAME, CRON_JOB_NAME, "cron job",
+                            command=("scan", "--format", "cron"))
 
 
 # Thin bindings over the shared installer: the mechanics (0700 dir + script, the

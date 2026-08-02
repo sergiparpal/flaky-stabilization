@@ -14,6 +14,11 @@ authors = [{ name = "sergiparpal" }]
 dev = ["pytest>=7.4", "pytest-cov>=4", "ruff>=0.5"]
 ocr = ["Pillow>=11.3", "pytesseract>=0.3.13"]
 
+[project.scripts]
+# The standalone CLI composition root. Same name as the Hermes subcommand
+# (`hermes flaky-stab scan`), so docs and cron shims carry over unchanged.
+flaky-stab = "flaky_stabilization.__main__:main"
+
 [tool.setuptools.packages.find]
 include = ["flaky_stabilization*"]
 

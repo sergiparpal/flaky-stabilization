@@ -1,0 +1,75 @@
+# Pull-request flaky check — a READER of the cache the nightly job writes.
+#
+# Copy this into `.github/workflows/` in your own repository.
+#
+# This job ANNOTATES. It must not be the thing that decides whether a pull
+# request merges: a "known flaky" verdict is a hint for the human reading the
+# failure, not permission to ignore it, and a test that is flaky today may be
+# genuinely broken tomorrow. Keep it out of your required status checks.
+#
+# Cache scoping: a pull-request branch can restore a cache written on `main`,
+# but a cache written on a PR branch is never visible to `main` or to other
+# PRs. That asymmetry is why the nightly job on `main` is the writer and this
+# one only reads — `lookup-only` keeps it from writing an entry at all.
+name: Flaky PR gate
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  annotate:
+    name: Annotate known flaky failures
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Restore the flaky-detection state (read-only)
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .flaky/
+          key: flaky-main-
+          restore-keys: |
+            flaky-main-
+
+      # Replace this with your real test step. It should write the identifiers
+      # of the failed tests, one per line, to failed-tests.txt — the format is
+      # `classname::name` (a bare test name also works, less precisely).
+      - name: Run the test suite
+        id: tests
+        continue-on-error: true
+        run: echo "run your tests here, writing failures into failed-tests.txt"
+
+      - name: Ask whether each failure is a known flake
+        if: hashFiles('failed-tests.txt') != ''
+        env:
+          FLAKY_STAB_HOME: ${{ github.workspace }}/.flaky
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --quiet \
+            "git+https://github.com/sergiparpal/flaky-stabilization@v0.2.1"
+          # One CLI call per failed test. The composite action handles a single
+          # test-id; a loop wants the CLI directly.
+          while IFS= read -r test_id; do
+            [ -n "$test_id" ] || continue
+            verdict="$(flaky-stab is-flaky "$test_id" --format json)"
+            if printf '%s' "$verdict" | jq -e '.is_flaky' > /dev/null; then
+              echo "::warning::$test_id is a KNOWN FLAKY test — check the history before assuming this PR broke it"
+            else
+              echo "::notice::$test_id has no flaky verdict on record"
+            fi
+          done < failed-tests.txt
+
+      # The annotations above are the output. The job's own conclusion follows
+      # the test step, not the flaky verdicts.
+      - name: Reflect the test result
+        if: steps.tests.outcome == 'failure'
+        run: |
+          echo "the test suite failed; see the annotations for known flakes"
+          exit 1

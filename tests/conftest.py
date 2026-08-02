@@ -25,6 +25,7 @@ for entry in (str(REPO_ROOT), str(TESTS_DIR)):
 from _doubles import (  # noqa: E402
     FakePluginContext,
     find_hermes_repo,
+    stub_hermes_on_path,
 )
 
 _CRED_VARS = (
@@ -33,7 +34,11 @@ _CRED_VARS = (
     "JIRA_EMAIL",
     "JIRA_BASE_URL",
 )
-_PLUGIN_ENV_PREFIXES = ("FLAKY_HEALER_", "HERMES_CI_TRIAGE_", "HERMES_JIRA_")
+# FLAKY_STAB_ covers FLAKY_STAB_HOME (and any future var in that namespace),
+# which outranks HERMES_HOME in paths.get_hermes_home: a stray one in the host
+# shell would redirect EVERY test at the developer's real profile, silently.
+_PLUGIN_ENV_PREFIXES = ("FLAKY_HEALER_", "FLAKY_STAB_", "HERMES_CI_TRIAGE_",
+                        "HERMES_JIRA_")
 
 
 @pytest.fixture(autouse=True)
@@ -74,6 +79,18 @@ def profile_env(_isolated_env, monkeypatch, tmp_path):
     fake_home.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
     return _isolated_env
+
+
+@pytest.fixture
+def hermes_on_path(monkeypatch):
+    """The classic environment: a ``hermes`` CLI is installed."""
+    stub_hermes_on_path(monkeypatch, present=True)
+
+
+@pytest.fixture
+def no_hermes_on_path(monkeypatch):
+    """The standalone environment: nothing named ``hermes`` anywhere on PATH."""
+    stub_hermes_on_path(monkeypatch, present=False)
 
 
 @pytest.fixture
