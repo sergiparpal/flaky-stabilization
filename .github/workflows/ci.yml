@@ -113,13 +113,90 @@ jobs:
           python -m pip install dist/*.whl
           python -c "from flaky_stabilization import register; print(register.__module__)"
 
+  action-smoke:
+    name: Composite action smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Stage a JUnit fixture inside the detection window
+        # The shipped fixtures carry the timestamps they were captured with,
+        # which age out of the 14-day window; only the stamp is rewritten, so
+        # the rows the detector reads are still the fixture's own.
+        run: |
+          set -euo pipefail
+          mkdir -p junit-fixtures
+          python3 - <<'PY'
+          import datetime
+          import pathlib
+          import re
+
+          src = pathlib.Path("tests/history/fixtures/pytest_junit_failures.xml").read_text()
+          now = datetime.datetime.now(datetime.timezone.utc).replace(
+              tzinfo=None, microsecond=0)
+          for i, days_ago in enumerate((5, 3, 1)):
+              stamp = (now - datetime.timedelta(days=days_ago)).isoformat()
+              xml = re.sub(r'timestamp="[^"]*"', f'timestamp="{stamp}"', src, count=1)
+              pathlib.Path(f"junit-fixtures/run-{i}.xml").write_text(xml)
+          PY
+
+      - name: Ingest the fixture through the action
+        uses: ./
+        with:
+          command: ingest
+          junit-path: junit-fixtures/*.xml
+
+      - name: Scan through the action
+        id: scan
+        uses: ./
+        with:
+          command: scan
+
+      - name: Query one test through the action
+        id: query
+        uses: ./
+        with:
+          command: is-flaky
+          test-id: src.auth.test_oauth::test_oauth_login
+
+      - name: Assert the outputs are present and well formed
+        env:
+          # Read through the environment, never interpolated into the script:
+          # the payload carries test names captured from test artifacts.
+          SCAN_JSON: ${{ steps.scan.outputs.result-json }}
+          FLAKY_COUNT: ${{ steps.scan.outputs.flaky-count }}
+          VERDICT_JSON: ${{ steps.query.outputs.result-json }}
+          IS_FLAKY: ${{ steps.query.outputs.is-flaky }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$SCAN_JSON" | jq -e '.scan.tests_examined > 0' > /dev/null
+          case "$FLAKY_COUNT" in
+            ''|*[!0-9]*) echo "flaky-count is not a number: '$FLAKY_COUNT'"; exit 1 ;;
+          esac
+          printf '%s\n' "$VERDICT_JSON" | jq -e '.success == true' > /dev/null
+          # Failing every run is a real break, not a flake: the gate must be able
+          # to tell them apart, so this asserts the verdict, not just its shape.
+          printf '%s\n' "$VERDICT_JSON" | jq -e '.status == "consistently_failing"' > /dev/null
+          [ "$IS_FLAKY" = "false" ]
+          echo "action outputs OK (flaky-count=$FLAKY_COUNT, is-flaky=$IS_FLAKY)"
+
+      - name: Assert the state landed in the action's state dir
+        run: |
+          set -euo pipefail
+          test -f .flaky/test-history/history.db
+          test -f .flaky/flaky-stabilization/state.db
+
   ci-complete:
     # One stable check name for the branch ruleset to require. Matrix legs come and go, so
     # requiring them individually would turn a dropped Python version into a required check
     # that never reports again — and an unsatisfiable required check blocks every merge.
     # This job depends on the ones that must pass and fails unless all of them succeeded.
     if: always()
-    needs: [lint, tests, docker-tests, build]
+    needs: [lint, tests, docker-tests, build, action-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

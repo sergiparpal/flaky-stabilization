@@ -1,0 +1,172 @@
+name: Flaky Stabilization
+description: >-
+  Ingest JUnit XML into a test-failure history, detect flaky tests, and ask
+  whether one specific test is a known flake. Detection only — no LLM, no
+  Hermes Agent, no third-party runtime dependency.
+author: sergiparpal
+
+branding:
+  icon: repeat
+  color: purple
+
+inputs:
+  command:
+    description: "What to run: ingest | scan | is-flaky"
+    required: true
+  junit-path:
+    description: >-
+      JUnit XML to ingest: a file, a directory (read recursively), or a glob.
+      Used by `command: ingest`.
+    required: false
+    default: ""
+  test-id:
+    description: >-
+      Test to query — a bare test name, 'classname::name', or
+      'file_path::name'. Used by `command: is-flaky`.
+    required: false
+    default: ""
+  state-dir:
+    description: >-
+      Directory holding history.db and state.db. Exported as FLAKY_STAB_HOME for
+      this and every later step in the job, and the thing to put in actions/cache.
+    required: false
+    default: ".flaky"
+  python-version:
+    description: Python version used to run the CLI.
+    required: false
+    default: "3.12"
+  format:
+    description: >-
+      Output format passed through to the subcommand. The outputs below are
+      populated only for `json` (the default) — nothing else is parseable.
+    required: false
+    default: "json"
+
+outputs:
+  is-flaky:
+    description: >-
+      'true' or 'false' for `command: is-flaky`; empty for any other command.
+      Absence of a verdict reports 'false' — it is an answer, not a failure.
+    value: ${{ steps.run.outputs.is-flaky }}
+  result-json:
+    description: >-
+      The subcommand's raw JSON output (empty unless `format: json`).
+    value: ${{ steps.run.outputs.result-json }}
+  flaky-count:
+    description: >-
+      Number of flaky tests found by `command: scan`; empty otherwise.
+    value: ${{ steps.run.outputs.flaky-count }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Resolve the state directory
+      shell: bash
+      env:
+        # Inputs are read through the environment, never interpolated into the
+        # script body: a `${{ }}` expansion inside `run:` is substituted before
+        # bash sees it, which turns any input into executable script.
+        STATE_DIR: ${{ inputs.state-dir }}
+      run: |
+        set -euo pipefail
+        case "$STATE_DIR" in
+          /*) home="$STATE_DIR" ;;
+          *)  home="$GITHUB_WORKSPACE/$STATE_DIR" ;;
+        esac
+        mkdir -p "$home"
+        # Exported for every later step in the job, so a workflow can run the
+        # CLI directly (or cache the directory) without repeating the path.
+        echo "FLAKY_STAB_HOME=$home" >> "$GITHUB_ENV"
+
+    - name: Install flaky-stabilization
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+        # From the action's own checkout: this package is not on PyPI.
+        python -m pip install --disable-pip-version-check --quiet "$ACTION_PATH"
+
+    - name: Run flaky-stab
+      id: run
+      shell: bash
+      env:
+        COMMAND: ${{ inputs.command }}
+        JUNIT_PATH: ${{ inputs.junit-path }}
+        TEST_ID: ${{ inputs.test-id }}
+        FORMAT: ${{ inputs.format }}
+      run: |
+        set -euo pipefail
+        result="$RUNNER_TEMP/flaky-stab-result.json"
+        : > "$result"
+
+        case "$COMMAND" in
+          ingest)
+            if [ -z "$JUNIT_PATH" ]; then
+              echo "::error::command 'ingest' requires the junit-path input"
+              exit 1
+            fi
+            shopt -s globstar nullglob
+            # compgen expands the pattern without word-splitting it, so a path
+            # containing spaces stays one path.
+            mapfile -t matches < <(compgen -G "$JUNIT_PATH" || true)
+            if [ "${#matches[@]}" -eq 0 ]; then
+              echo "::error::no JUnit XML matched junit-path: $JUNIT_PATH"
+              exit 1
+            fi
+            for match in "${matches[@]}"; do
+              flaky-stab ingest "$match"
+            done
+            ;;
+          scan)
+            flaky-stab scan --format "$FORMAT" | tee "$result"
+            ;;
+          is-flaky)
+            if [ -z "$TEST_ID" ]; then
+              echo "::error::command 'is-flaky' requires the test-id input"
+              exit 1
+            fi
+            # A flaky verdict exits 0 like any other answer; the caller branches
+            # on the payload. Only a broken database or a bad test-id fails here.
+            flaky-stab is-flaky "$TEST_ID" --format "$FORMAT" | tee "$result"
+            ;;
+          *)
+            echo "::error::unknown command '$COMMAND' (expected ingest, scan, or is-flaky)"
+            exit 1
+            ;;
+        esac
+
+        [ "$FORMAT" = "json" ] || exit 0
+        [ -s "$result" ] || exit 0
+
+        # Test names are captured from the repository's own test artifacts and
+        # are untrusted: the JSON is passed by file, and the heredoc delimiter is
+        # random so no test name can close it early and forge later outputs.
+        delimiter="FLAKY_STAB_$(python -c 'import secrets; print(secrets.token_hex(16))')"
+        {
+          echo "result-json<<$delimiter"
+          cat "$result"
+          echo ""
+          echo "$delimiter"
+        } >> "$GITHUB_OUTPUT"
+
+        if [ "$COMMAND" = "is-flaky" ]; then
+          verdict="$(jq -r 'if .is_flaky then "true" else "false" end' "$result")"
+          case "$verdict" in
+            true|false) echo "is-flaky=$verdict" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::warning::could not read is_flaky from the verdict" ;;
+          esac
+        fi
+
+        if [ "$COMMAND" = "scan" ]; then
+          count="$(jq -r '.scan.flaky_found // empty' "$result")"
+          case "$count" in
+            ''|*[!0-9]*) echo "::warning::could not read flaky_found from the scan" ;;
+            *) echo "flaky-count=$count" >> "$GITHUB_OUTPUT" ;;
+          esac
+        fi
