@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+The flaky-detection half becomes usable without Hermes Agent, as a standalone
+CLI and a GitHub Action. Healing, triage, and bug-report structuring stay
+Hermes-only: they need a model and the host's approval pipeline. No schema
+change, no new runtime dependency, and no change to the plugin surface.
+
+### Added
+
+- `flaky-stab`, a standalone console script (`flaky_stabilization/__main__.py`,
+  also runnable as `python -m flaky_stabilization`). It is a *second
+  composition root*, not a second package: `registration.py` composes the
+  plugin onto a Hermes `PluginContext`, `__main__.py` composes the same stage
+  CLIs onto a plain argparse parser. One repository, one `state.db`, one schema
+  ladder — see `docs/STANDALONE-CLI.md` for why extraction was rejected.
+- `$FLAKY_STAB_HOME`, the standalone home override. It heads the resolver chain
+  in `paths.get_hermes_home()`, ahead of the Hermes lookups, because an env var
+  the operator set explicitly must beat ambient discovery. With it unset, path
+  resolution is unchanged for every existing install — pinned branch by branch
+  in `tests/test_paths_cli_home.py`.
+- `flaky-stab is-flaky <test_id> [--format json]`: the single-test query a CI
+  gate needs, which existed only as a tool before. A flaky verdict exits `0`
+  like any other answer (`1` for an unreadable database, `2` for a malformed
+  `test_id`), so a gate cannot mistake a broken database for "not flaky".
+- `action.yml`, a composite GitHub Action wrapping `ingest`, `scan`, and
+  `is-flaky`, with `is-flaky` / `result-json` / `flaky-count` outputs and a
+  `state-dir` input that becomes `FLAKY_STAB_HOME`. Two copy-paste consumer
+  workflows are in `docs/examples/`; they live there rather than in
+  `.github/workflows/` so they cannot run against this repository.
+- `action-smoke`, a CI job running the composite action end to end against a
+  JUnit fixture, added to `ci-complete`'s `needs:` list.
+
+### Changed
+
+- `install-cron` degrades honestly when no `hermes` CLI is on `PATH`: the
+  installed shim execs the `flaky-stab` console script instead of
+  `hermes flaky-stab`, and the printed command becomes a plain crontab line
+  instead of a `hermes cron create` invocation the operator cannot run. The
+  shim's exec line is retargeted at install time, so `set -euo pipefail` and
+  the `exec` (which makes the scan's exit code the job's exit code) are
+  untouched. Schedule validation is unchanged and still runs before anything is
+  written.
+- The test bootstrap (`tests/conftest.py`, `scripts/run_tests.sh`) scrubs the
+  `FLAKY_STAB_` env prefix. Because the new variable outranks the throwaway
+  `HERMES_HOME` the suite sets, a stray one in a developer's shell would have
+  pointed every test at their real profile.
+
 ## [0.2.1] — 2026-07-30
 
 Repository infrastructure and documentation. No runtime code changed — the
