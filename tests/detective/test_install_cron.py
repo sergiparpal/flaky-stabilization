@@ -29,7 +29,7 @@ def _shim_path(home):
 # ---------------------------------------------------------------------------
 
 
-def test_no_create_installs_shim_and_prints_command(profile_env, capsys):
+def test_no_create_installs_shim_and_prints_command(profile_env, hermes_on_path, capsys):
     assert _run(["install-cron", "--no-create", "--deliver", "local"]) == 0
     out = capsys.readouterr().out
     shim = _shim_path(profile_env)
@@ -50,7 +50,7 @@ def test_persists_resolved_options(profile_env, capsys):
     assert cfg["min_fails"] == 2
 
 
-def test_printable_command_shell_quotes_arguments():
+def test_printable_command_shell_quotes_arguments(hermes_on_path):
     # A schedule/deliver with spaces must stay single shell tokens in the printed
     # copy-paste command, so it round-trips through a shell parser intact.
     printable = cli._printable_cron_command("*/5 9 * * *", "my channel")
@@ -91,10 +91,12 @@ def test_missing_shim_source_errors_before_persisting_config(profile_env, capsys
 def test_shim_copy_failure_is_a_clean_error(profile_env, capsys, monkeypatch):
     # An install failure after the source check (e.g. permissions) must surface
     # as a one-line error + non-zero exit, not a traceback.
-    def boom(src, dst):
+    def boom(self, *args, **kwargs):
         raise PermissionError("denied")
 
-    monkeypatch.setattr("shutil.copyfile", boom)
+    # The shim is written, not copied: its exec line is retargeted at install
+    # time when there is no hermes CLI to exec through.
+    monkeypatch.setattr("pathlib.Path.write_text", boom)
     assert _run(["install-cron", "--no-create", "--deliver", "local"]) == 1
     err = capsys.readouterr().err
     assert "error:" in err and "denied" in err
@@ -106,7 +108,7 @@ def test_shim_copy_failure_is_a_clean_error(profile_env, capsys, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_create_success(profile_env, capsys, monkeypatch):
+def test_create_success(profile_env, hermes_on_path, capsys, monkeypatch):
     calls = {}
 
     def fake_run(cmd, capture_output=False, text=False):
@@ -124,7 +126,8 @@ def test_create_success(profile_env, capsys, monkeypatch):
     assert _shim_path(profile_env).exists()
 
 
-def test_create_failure_falls_back_to_printing(profile_env, capsys, monkeypatch):
+def test_create_failure_falls_back_to_printing(profile_env, hermes_on_path, capsys,
+                                               monkeypatch):
     def fake_run(cmd, capture_output=False, text=False):
         return SimpleNamespace(returncode=1, stdout="", stderr="gateway not configured")
 
@@ -138,7 +141,8 @@ def test_create_failure_falls_back_to_printing(profile_env, capsys, monkeypatch)
     assert _shim_path(profile_env).exists()
 
 
-def test_create_when_hermes_cli_missing_falls_back(profile_env, capsys, monkeypatch):
+def test_create_when_hermes_cli_missing_falls_back(profile_env, hermes_on_path, capsys,
+                                                   monkeypatch):
     def fake_run(cmd, capture_output=False, text=False):
         raise FileNotFoundError("hermes")
 
@@ -148,3 +152,44 @@ def test_create_when_hermes_cli_missing_falls_back(profile_env, capsys, monkeypa
     assert "could not run the hermes CLI" in out
     assert "hermes cron create" in out
     assert _shim_path(profile_env).exists()
+
+
+# ---------------------------------------------------------------------------
+# no hermes CLI: install still works, and says how to schedule it with cron
+# ---------------------------------------------------------------------------
+
+
+def test_install_without_hermes_prints_a_crontab_line(profile_env, no_hermes_on_path,
+                                                      capsys):
+    assert _run(["install-cron", "--deliver", "local", "--schedule", "0 9 * * *"]) == 0
+    out = capsys.readouterr().out
+    assert "0 9 * * * flaky-stab scan --format cron" in out
+    assert "hermes cron create" not in out
+    assert "crontab -e" in out
+    assert _shim_path(profile_env).exists()
+
+
+def test_installed_shim_targets_the_console_script_without_hermes(profile_env,
+                                                                  no_hermes_on_path,
+                                                                  capsys):
+    assert _run(["install-cron", "--no-create", "--deliver", "local"]) == 0
+    text = _shim_path(profile_env).read_text(encoding="utf-8")
+    assert "exec flaky-stab scan --format cron" in text
+    assert "exec hermes" not in text
+    assert "set -euo pipefail" in text
+    assert stat.S_IMODE(os.stat(_shim_path(profile_env)).st_mode) == 0o700
+
+
+def test_leading_dash_schedule_is_still_rejected_without_hermes(profile_env,
+                                                               no_hermes_on_path,
+                                                               capsys):
+    """The schedule reaches a crontab line now instead of an argv, but it is
+    validated on both paths and still before anything is written."""
+    # `--schedule=<value>`: the form that gets a leading-dash value past argparse
+    # and all the way to the validator, which is the point of the check.
+    assert _run(["install-cron", "--schedule=--no-agent", "--deliver", "local"]) == 2
+    captured = capsys.readouterr()
+    assert "error:" in captured.err
+    assert captured.out == ""
+    assert not config.config_path().exists()
+    assert not (profile_env / "scripts").exists()

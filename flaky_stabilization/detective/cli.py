@@ -351,7 +351,8 @@ CRON_JOB_NAME = "flaky-stabilization"
 def _scan_job() -> cronjobs.CronJob:
     """This module's job identity, read from the globals at CALL time (tests
     monkeypatch ``SHIM_NAME`` to simulate a missing shim source)."""
-    return cronjobs.CronJob(SHIM_NAME, CRON_JOB_NAME, "cron job")
+    return cronjobs.CronJob(SHIM_NAME, CRON_JOB_NAME, "cron job",
+                            command=("scan", "--format", "cron"))
 
 
 # Thin bindings over the shared installer: the mechanics (0700 dir + script, the

@@ -25,6 +25,7 @@ for entry in (str(REPO_ROOT), str(TESTS_DIR)):
 from _doubles import (  # noqa: E402
     FakePluginContext,
     find_hermes_repo,
+    stub_hermes_on_path,
 )
 
 _CRED_VARS = (
@@ -78,6 +79,18 @@ def profile_env(_isolated_env, monkeypatch, tmp_path):
     fake_home.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
     return _isolated_env
+
+
+@pytest.fixture
+def hermes_on_path(monkeypatch):
+    """The classic environment: a ``hermes`` CLI is installed."""
+    stub_hermes_on_path(monkeypatch, present=True)
+
+
+@pytest.fixture
+def no_hermes_on_path(monkeypatch):
+    """The standalone environment: nothing named ``hermes`` anywhere on PATH."""
+    stub_hermes_on_path(monkeypatch, present=False)
 
 
 @pytest.fixture

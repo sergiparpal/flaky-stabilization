@@ -164,7 +164,8 @@ JIRA_SYNC_JOB = "flaky-stabilization-jira-sync"
 def _jira_sync_job() -> cronjobs.CronJob:
     """This job's identity, read from the globals at CALL time (mirrors
     ``detective.cli._scan_job``, which tests monkeypatch)."""
-    return cronjobs.CronJob(JIRA_SYNC_SHIM, JIRA_SYNC_JOB, "jira-sync job")
+    return cronjobs.CronJob(JIRA_SYNC_SHIM, JIRA_SYNC_JOB, "jira-sync job",
+                            command=("jira", "sync", "--quiet"))
 
 
 def _install_jira_sync_job(args) -> int:

@@ -249,6 +249,19 @@ def block_hermes_imports(monkeypatch) -> HermesImportBlocker:
     return blocker
 
 
+def stub_hermes_on_path(monkeypatch, *, present: bool) -> None:
+    """Pin what ``shutil.which("hermes")`` answers for one test.
+
+    ``cronjobs`` probes it to decide between a ``hermes cron create`` command
+    and a plain crontab line, so a test that means to exercise one branch must
+    say which — otherwise it silently tests whatever the machine happens to
+    have installed.
+    """
+    path = "/usr/local/bin/hermes" if present else None
+    monkeypatch.setattr(
+        "shutil.which", lambda name, *a, **k: path if name == "hermes" else None)
+
+
 def fake_hermes_constants(monkeypatch, home) -> None:
     """Install a stub ``hermes_constants`` exposing ``get_hermes_home()``."""
     module = types.ModuleType("hermes_constants")
