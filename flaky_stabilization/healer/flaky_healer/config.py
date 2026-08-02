@@ -355,8 +355,13 @@ def subproc_isolate_net() -> bool:
     webServer). Best-effort and probe-gated; on by default, set to 0/false to
     disable on hosts whose tests legitimately reach external services.
     """
+    # `raw.strip()`, not `raw is not None`: an EMPTY value means "unset"
+    # everywhere else in this plugin (allow_subprocess_pr below,
+    # safehttp._allow_private, config._apply_env_overrides). Testing only for
+    # None made a bare `export FLAKY_HEALER_SUBPROC_ISOLATE_NET=` in a CI
+    # wrapper silently turn this security-relevant default OFF.
     raw = os.environ.get(ENV_SUBPROC_ISOLATE_NET)
-    if raw is not None:
+    if raw is not None and raw.strip():
         _warn_legacy_env(
             ENV_SUBPROC_ISOLATE_NET,
             "the `healer.subproc_isolate_net` key in flaky-stabilization/config.json")
@@ -379,8 +384,10 @@ def run_concurrency() -> int:
       isolation off/unavailable they would collide on the webServer port, so
       keep this at 1 there.
     """
+    # Empty means unset here too, so the config layer is still consulted rather
+    # than skipped in favour of the built-in default (see subproc_isolate_net).
     raw = os.environ.get(ENV_RUN_CONCURRENCY)
-    if raw is None:
+    if raw is None or not raw.strip():
         value = _cfg_int("run_concurrency")
         return max(1, value) if value is not None else 1
     _warn_legacy_env(

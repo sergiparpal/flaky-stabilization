@@ -56,6 +56,11 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     },
     # Read by detective/config.py (scan window/thresholds) and by the
     # install-cron composition in cli.py (schedule/deliver/report_scope).
+    # The last two mirror detective/config.py's DEFAULT_CONFIG, which owns the
+    # stage's own resolution. They live here too so the unified file documents
+    # every key the section accepts — without them a user setting
+    # test_history_db_path saw it treated as an unknown key and absent from the
+    # resolved view, even though the stage honours it.
     "detective": {
         "window_days": 14,
         "min_fails": 3,
@@ -63,6 +68,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
         "schedule": "0 9 * * *",
         "deliver": "local",
         "report_scope": "changes-only",
+        "test_history_db_path": None,
+        "source_schema_version": 1,
     },
     # enable_enrichment gates triage's history enrichment; log_roots/
     # token_hosts/allow_private feed the triage log-fetch guardrails

@@ -268,7 +268,7 @@ def resolve_hermes_home() -> str:
     return str(paths.get_hermes_home())
 
 
-def _section(cfg: dict[str, Any], name: str) -> dict[str, Any]:
+def section(cfg: dict[str, Any], name: str) -> dict[str, Any]:
     """Return ``cfg[name]`` when it is a dict, else ``{}``.
 
     Config sections (``jira``, ``incidents``) are optional and, if a user
@@ -321,8 +321,8 @@ def load_config(hermes_home: str) -> dict[str, Any]:
     except Exception as e:
         logger.warning("%s: failed to read unified config: %s", NAME, e)
         return {}
-    jira = _section(cfg, "jira")
-    inc = _section(cfg, "incidents")
+    jira = section(cfg, "jira")
+    inc = section(cfg, "incidents")
     return {
         "jira_base_url": jira.get("base_url", ""),
         "jira_email": jira.get("email", ""),

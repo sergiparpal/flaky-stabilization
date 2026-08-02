@@ -90,9 +90,13 @@ def get_db_path() -> Path:
         # symlinks and '..' before the containment check.
         home = Path(os.path.realpath(str(get_hermes_home())))
         path = Path(os.path.realpath(str(override)))
-        if path != home and home not in path.parents:
+        # Strictly *inside* the home: an override equal to the home itself named
+        # a directory, which passed this check and then failed downstream with an
+        # opaque "unable to open database file" from sqlite3.
+        if home not in path.parents:
             raise ValueError(
-                f"db_path_override must be within the Hermes home ({home}); got {override!r}"
+                f"db_path_override must be a file within the Hermes home ({home}); "
+                f"got {override!r}"
             )
         # Ensure the override's parent exists, mirroring get_storage_dir() for
         # the default path; otherwise sqlite3.connect raises "unable to open

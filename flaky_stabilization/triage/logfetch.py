@@ -285,7 +285,14 @@ def read_local(path: str) -> str:
             "Pre-trim the log, or point at the specific failing job's log.",
         )
     try:
-        with os.fdopen(fd, "rb") as fh:
+        # fdopen adopts the fd only once it succeeds; if IT raises, nothing owns
+        # the raw fd and it leaks. Same discipline as scanner._open_nofollow.
+        try:
+            fh = os.fdopen(fd, "rb")
+        except BaseException:
+            os.close(fd)
+            raise
+        with fh:
             data = fh.read(MAX_LOG_BYTES)
     except OSError as exc:
         raise LogFetchError(

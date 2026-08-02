@@ -105,6 +105,24 @@ class PrefetchCache:
             pool.shutdown(wait=False, cancel_futures=True)
         self._pool = None
 
+    def reopen(self) -> None:
+        """Undo :meth:`shutdown` so a re-initialised owner gets a live cache.
+
+        ``shutdown`` sets ``_closed`` and nothing used to clear it, so an owner
+        that shuts down and initialises again (session end → session start in a
+        long-lived gateway) kept a permanently dead cache: every ``_submit``
+        returned ``None`` and every ``get`` degraded to ``""`` — silently, with
+        no error and no log, for the rest of the process. The worker pool is
+        rebuilt lazily by :meth:`_get_pool`; a no-op when already open.
+        """
+        with self._lock:
+            if not self._closed:
+                return
+            self._closed = False
+            self._generation += 1
+            self._cache.clear()
+            self._inflight.clear()
+
     # -- internals -----------------------------------------------------------
 
     def _submit(self, key: str, query: str) -> Future[str] | None:

@@ -148,7 +148,14 @@ class PatternStore:
         min_overlap = min(2, len(tokens))
         try:
             if self.fts:
-                match = " OR ".join(f'"{t}"' for t in tokens)
+                # Column-qualified to `sample`. Schema v2 indexes `signature`
+                # (so the targeted delete can find a row), which also put hex
+                # digests into the searchable token space — an unqualified match
+                # would let a hex-shaped token in a log excerpt hit a signature
+                # instead of real sample text. Similarity is a property of the
+                # sample, and only the sample.
+                match = " OR ".join(
+                    'sample:"' + t.replace('"', "") + '"' for t in tokens)
                 rows = self.conn.execute(
                     "SELECT p.* FROM triage_patterns_fts f "
                     "JOIN triage_patterns p ON p.project=f.project AND p.signature=f.signature "
@@ -288,14 +295,39 @@ class PatternStore:
 
     # -- FTS index maintenance (best-effort; no-ops when FTS is off) --------
 
+    # A plain `DELETE ... WHERE project=? AND signature=?` is a FULL
+    # virtual-table scan (verified via EXPLAIN QUERY PLAN) — run twice per
+    # record() and once per pruned row, on the synchronous triage path, growing
+    # linearly with the mirror. Schema v2 indexes `signature`, so the row can be
+    # located by an indexed MATCH and deleted by rowid instead: O(log n). The
+    # MATCH is a prefilter only — the exact project/signature equality still
+    # decides. Mirrors IncidentStore._FTS_DELETE_SQL, which fixed the same thing
+    # on the incidents mirror. NOTE: this REQUIRES `signature` to be indexed —
+    # a MATCH against an UNINDEXED column silently matches nothing, so on a
+    # pre-v2 mirror it would no-op and leak stale rows.
+    _FTS_DELETE_SQL = (
+        "DELETE FROM triage_patterns_fts WHERE rowid IN ("
+        "SELECT rowid FROM triage_patterns_fts "
+        "WHERE triage_patterns_fts MATCH ? AND project = ? AND signature = ?)"
+    )
+
+    @staticmethod
+    def _fts_delete_params(project: str, signature: str) -> tuple[str, str, str]:
+        """Parameters for ``_FTS_DELETE_SQL``: (match expr, project, signature).
+
+        The signature is a hex digest, so quoting it as a phrase is enough to
+        neutralise FTS5 syntax; the stray-quote strip keeps that true for a
+        hand-written row.
+        """
+        match = 'signature:"' + signature.replace('"', "") + '"'
+        return (match, project, signature)
+
     def _fts_delete(self, project: str, signature: str) -> None:
         if not self.fts:
             return
         try:
             self.conn.execute(
-                "DELETE FROM triage_patterns_fts WHERE project=? AND signature=?",
-                (project, signature),
-            )
+                self._FTS_DELETE_SQL, self._fts_delete_params(project, signature))
         except sqlite3.Error:
             pass
 

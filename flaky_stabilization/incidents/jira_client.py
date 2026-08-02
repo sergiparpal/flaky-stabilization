@@ -86,6 +86,10 @@ def _urllib_transport(method: str, url: str, headers: dict[str, str],
         return e.code, payload
     except urllib.error.URLError as e:
         raise JiraError(f"network error: {e.reason}") from e
+    except JiraError:
+        # Already shaped (e.g. the response-size cap raised inside the `with`):
+        # re-wrapping it below would bury the message and drop `.status`.
+        raise
     except Exception as e:  # socket.timeout etc.
         raise JiraError(f"request failed: {e}") from e
 

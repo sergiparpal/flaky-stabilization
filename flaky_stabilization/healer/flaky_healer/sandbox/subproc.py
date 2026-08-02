@@ -93,8 +93,14 @@ def _netns_probe() -> tuple[str, ...]:
 
 
 def _bounded_wait(proc: subprocess.Popen, timeout_s: int) -> tuple[bytes, bool]:
-    """Drain output without unbounded buffering; return tail and timeout flag."""
-    assert proc.stdout is not None
+    """Drain output without unbounded buffering; return tail and timeout flag.
+
+    The caller always creates *proc* with ``stdout=PIPE``. That used to be an
+    ``assert``, which ``python -O`` strips — turning the invariant into an
+    ``AttributeError`` on ``None`` instead of a clear failure.
+    """
+    if proc.stdout is None:
+        raise SandboxError("subprocess sandbox: the run was started without a stdout pipe")
     try:
         fd = proc.stdout.fileno()
     except (AttributeError, OSError):
