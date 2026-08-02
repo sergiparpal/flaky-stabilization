@@ -17,6 +17,11 @@ from pathlib import Path
 
 DATA_DIR_NAME = "flaky-stabilization"
 
+# The standalone CLI's own home override (``flaky-stab``, ``__main__.py``).
+# Namespaced to the binary rather than reusing ``HERMES_HOME``, so an operator
+# running the CLI on a box that also has Hermes can keep the two apart.
+CLI_HOME_ENV = "FLAKY_STAB_HOME"
+
 
 def env_home() -> Path | None:
     """``$HERMES_HOME``, expanded, or ``None`` when unset/empty.
@@ -36,16 +41,42 @@ def env_home() -> Path | None:
     return Path(os.path.expanduser(os.path.expandvars(raw)))
 
 
+def cli_env_home() -> Path | None:
+    """``$FLAKY_STAB_HOME``, expanded, or ``None`` when unset/empty.
+
+    Mirrors :func:`env_home` exactly, expansion included, and for the same
+    reason: a crontab or a systemd ``EnvironmentFile`` sets
+    ``FLAKY_STAB_HOME=~/flaky`` with no shell expansion, and a literal ``~/...``
+    would otherwise become a *relative* path that ``get_data_dir`` mkdirs as
+    ``./~`` under whatever the CWD happened to be.
+    """
+    raw = (os.environ.get(CLI_HOME_ENV) or "").strip()
+    if not raw:
+        return None
+    return Path(os.path.expanduser(os.path.expandvars(raw)))
+
+
 def default_home() -> Path:
     """The last-resort home when Hermes is absent and ``$HERMES_HOME`` is unset."""
     return Path.home() / ".hermes"
 
 
 def get_hermes_home() -> Path:
-    """Return the profile-aware Hermes home — the ONE resolver.
+    """Return the profile-aware home — the ONE resolver, for both roots.
 
-    Prefer the official helpers when Hermes is importable; otherwise fall back
-    to the ``HERMES_HOME`` env var, then ``~/.hermes``. Never hardcoded.
+    The chain, in order:
+
+    1. ``$FLAKY_STAB_HOME`` — the standalone CLI's explicit override
+    2. ``hermes_constants.get_hermes_home()``
+    3. ``hermes_cli.utils.display_hermes_home()``
+    4. ``$HERMES_HOME``
+    5. ``~/.hermes``
+
+    ``FLAKY_STAB_HOME`` outranks the Hermes lookups deliberately: an env var the
+    operator set explicitly (a CI job's state dir, a throwaway profile) must beat
+    ambient discovery of whatever Hermes happens to be installed on the box.
+    With it unset, steps 2-5 resolve exactly as they did before it existed, so a
+    Hermes install sees no change at all.
 
     Every stage delegates here (``history.storage``, ``detective.storage``,
     ``incidents.config``, ``triage``). Do not re-implement this chain: the
@@ -56,6 +87,9 @@ def get_hermes_home() -> Path:
     The Hermes imports are lazy (call time, not import time) so this module
     stays safe to import from the lightweight CLI path.
     """
+    cli_home = cli_env_home()
+    if cli_home is not None:
+        return cli_home
     try:
         from hermes_constants import get_hermes_home as _core_home  # type: ignore
 

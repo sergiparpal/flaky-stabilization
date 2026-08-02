@@ -33,7 +33,11 @@ _CRED_VARS = (
     "JIRA_EMAIL",
     "JIRA_BASE_URL",
 )
-_PLUGIN_ENV_PREFIXES = ("FLAKY_HEALER_", "HERMES_CI_TRIAGE_", "HERMES_JIRA_")
+# FLAKY_STAB_ covers FLAKY_STAB_HOME (and any future var in that namespace),
+# which outranks HERMES_HOME in paths.get_hermes_home: a stray one in the host
+# shell would redirect EVERY test at the developer's real profile, silently.
+_PLUGIN_ENV_PREFIXES = ("FLAKY_HEALER_", "FLAKY_STAB_", "HERMES_CI_TRIAGE_",
+                        "HERMES_JIRA_")
 
 
 @pytest.fixture(autouse=True)

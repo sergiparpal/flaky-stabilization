@@ -13,6 +13,7 @@ import importlib.util
 import json
 import os
 import sys
+import types
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -218,6 +219,51 @@ def load_plugin_module(name: str = "flaky_stabilization_plugin"):
     sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def _is_hermes(fullname: str) -> bool:
+    return fullname == "hermes" or fullname.startswith(("hermes.", "hermes_"))
+
+
+class HermesImportBlocker:
+    """A ``sys.meta_path`` finder that makes every ``hermes*`` import fail.
+
+    The standalone CLI's whole point is running where Hermes is not installed.
+    Relying on it being absent from the machine would make those tests pass
+    vacuously here and silently stop testing anything on a box where the agent
+    *is* installed — install this instead. Use :func:`block_hermes_imports`.
+    """
+
+    def find_spec(self, fullname, path=None, target=None):
+        if _is_hermes(fullname):
+            raise ImportError(f"{fullname} is blocked (HermesImportBlocker)")
+        return None
+
+
+def block_hermes_imports(monkeypatch) -> HermesImportBlocker:
+    """Make ``import hermes*`` fail for the duration of one test."""
+    blocker = HermesImportBlocker()
+    monkeypatch.setattr(sys, "meta_path", [blocker, *sys.meta_path])
+    for name in [n for n in sys.modules if _is_hermes(n)]:
+        monkeypatch.delitem(sys.modules, name, raising=False)
+    return blocker
+
+
+def fake_hermes_constants(monkeypatch, home) -> None:
+    """Install a stub ``hermes_constants`` exposing ``get_hermes_home()``."""
+    module = types.ModuleType("hermes_constants")
+    module.get_hermes_home = lambda: str(home)
+    monkeypatch.setitem(sys.modules, "hermes_constants", module)
+
+
+def fake_hermes_cli(monkeypatch, home) -> None:
+    """Install a stub ``hermes_cli.utils`` exposing ``display_hermes_home()``."""
+    pkg = types.ModuleType("hermes_cli")
+    utils = types.ModuleType("hermes_cli.utils")
+    utils.display_hermes_home = lambda: str(home)
+    pkg.utils = utils
+    monkeypatch.setitem(sys.modules, "hermes_cli", pkg)
+    monkeypatch.setitem(sys.modules, "hermes_cli.utils", utils)
 
 
 def find_hermes_repo() -> Path | None:

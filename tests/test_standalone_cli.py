@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from _doubles import block_hermes_imports
 
 from flaky_stabilization import __main__ as standalone
 from flaky_stabilization import __version__
@@ -22,33 +23,9 @@ from flaky_stabilization import __version__
 FIXTURES = Path(__file__).resolve().parent / "history" / "fixtures"
 
 
-class _BlockHermes:
-    """A ``sys.meta_path`` finder that makes every ``hermes*`` import fail.
-
-    Stronger than relying on Hermes being absent from the dev machine: this way
-    the "works without Hermes" tests still mean something on a box where the
-    agent *is* installed.
-    """
-
-    def find_module(self, fullname, path=None):  # pragma: no cover - legacy API
-        return None
-
-    def find_spec(self, fullname, path=None, target=None):
-        if fullname == "hermes" or fullname.startswith(("hermes.", "hermes_")):
-            raise ImportError(f"{fullname} is blocked by this test")
-        return None
-
-
 @pytest.fixture
 def no_hermes(monkeypatch):
-    import sys
-
-    blocker = _BlockHermes()
-    monkeypatch.setattr(sys, "meta_path", [blocker, *sys.meta_path])
-    for name in list(sys.modules):
-        if name == "hermes" or name.startswith(("hermes.", "hermes_")):
-            monkeypatch.delitem(sys.modules, name, raising=False)
-    return blocker
+    return block_hermes_imports(monkeypatch)
 
 
 @pytest.fixture

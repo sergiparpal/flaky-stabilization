@@ -22,8 +22,10 @@ unset -v \
   TOGETHER_API_KEY FIREWORKS_API_KEY COHERE_API_KEY HF_TOKEN \
   AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AZURE_OPENAI_API_KEY 2>/dev/null || true
 
-# Plugin-specific env that would leak host state into tests.
-for var in $(compgen -e | grep -E '^(FLAKY_HEALER_|HERMES_CI_TRIAGE_|HERMES_JIRA_)' || true); do
+# Plugin-specific env that would leak host state into tests. FLAKY_STAB_ covers
+# FLAKY_STAB_HOME, which outranks the tests' throwaway HERMES_HOME — leaving one
+# set would point the whole suite at the developer's real profile.
+for var in $(compgen -e | grep -E '^(FLAKY_HEALER_|FLAKY_STAB_|HERMES_CI_TRIAGE_|HERMES_JIRA_)' || true); do
   unset -v "$var"
 done
 
