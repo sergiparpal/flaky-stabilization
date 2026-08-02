@@ -129,6 +129,19 @@ def test_nothing_below_imports_up_into_the_orchestrator():
     assert not offenders, "nothing below may import the orchestrator:\n" + "\n".join(offenders)
 
 
+def test_standalone_root_never_imports_hermes():
+    """``__main__.py`` is the second composition root, and the mirror image of
+    ``registration.py``'s rule applies to it: Hermes-facing wiring belongs in
+    ``registration.py``, and the standalone root must not import a Hermes surface
+    at all — a lazy ``try/except ImportError`` included. The whole point of the
+    binary is that it runs where Hermes is not installed."""
+    path = PKG_ROOT / "__main__.py"
+    offenders = [target for target, _ in _imports(path)
+                 if target == "hermes" or target.startswith(("hermes.", "hermes_"))]
+    assert not offenders, (
+        "__main__.py must not import Hermes:\n" + "\n".join(offenders))
+
+
 def test_orchestrator_uses_stage_public_ports_not_privates():
     """The orchestrator must reach stages through their public surface — never a
     ``_``-prefixed name (the _handle_is_flaky / _resolve_home reaches)."""
