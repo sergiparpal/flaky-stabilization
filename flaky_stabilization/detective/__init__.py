@@ -73,7 +73,14 @@ _INTERNAL_ERROR = "internal error while looking up the flaky verdict"
 # ---------------------------------------------------------------------------
 
 
-def _validate_test_id(value) -> str:
+def validate_test_id(value) -> str:
+    """The one rule set for a caller-supplied ``test_id``; raises ``ValueError``.
+
+    Public because two entry points now apply it: the tool handler (turning a
+    failure into the error contract) and the ``is-flaky`` CLI subcommand
+    (turning it into a usage exit code). One owner, so they cannot disagree
+    about what a valid identifier is.
+    """
     if not isinstance(value, str):
         raise ValueError("`test_id` must be a string")
     cleaned = value.strip()
@@ -146,7 +153,7 @@ def _handle_is_flaky(params, *, store=None, **kwargs):
         return _error_json("`params` must be a JSON object with a `test_id`",
                            _INPUT_REMEDIATION)
     try:
-        test_id = _validate_test_id(params.get("test_id"))
+        test_id = validate_test_id(params.get("test_id"))
     except ValueError as exc:
         return _error_json(str(exc), _INPUT_REMEDIATION)
 

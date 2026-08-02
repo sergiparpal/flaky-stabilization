@@ -78,8 +78,8 @@ def test_version_reports_the_package_version(capsys):
     assert __version__ in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("subcommand", ["scan", "ingest", "list", "install-cron",
-                                        "prune", "jira", "migrate"])
+@pytest.mark.parametrize("subcommand", ["scan", "ingest", "list", "is-flaky",
+                                        "install-cron", "prune", "jira", "migrate"])
 def test_stage_subcommands_are_mounted(subcommand, capsys):
     """``--help`` on each subcommand proves the stage arg-adders ran — a parser
     missing them would exit 2 on the unknown command instead."""
@@ -144,6 +144,25 @@ def test_list_reads_back_what_scan_persisted(profile_env, history_reset,
 
     assert standalone.main(["list", "--status", "consistently_failing"]) == 0
     assert "test_oauth_login" in capsys.readouterr().out
+
+
+def test_is_flaky_is_mounted_on_the_standalone_root(profile_env, history_reset,
+                                                    tmp_path, capsys):
+    """The query the CI gate makes, through the standalone composition root."""
+    xml = _ingest_fixture("pytest_junit_failures.xml", tmp_path / "run.xml", days_ago=1)
+    assert standalone.main(["ingest", str(xml)]) == 0
+    assert standalone.main(["scan", "--format", "json", "--min-fails", "1"]) == 0
+    capsys.readouterr()
+
+    rc = standalone.main(["is-flaky", "src.auth.test_oauth::test_oauth_login",
+                          "--format", "json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["success"] is True
+    # Failing every run is not flaky — that is a real break, and the gate must
+    # be able to tell the difference.
+    assert payload["is_flaky"] is False
+    assert payload["status"] == "consistently_failing"
 
 
 # ---------------------------------------------------------------------------
