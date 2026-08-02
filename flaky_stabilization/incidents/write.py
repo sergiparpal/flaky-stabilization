@@ -195,7 +195,7 @@ def handle_create_incident(args: dict[str, Any], **kwargs: Any) -> str:
 
     home = config_mod.resolve_hermes_home()
     cfg = config_mod.load_unified_config(home)
-    jira_section = config_mod._section(cfg, "jira")
+    jira_section = config_mod.section(cfg, "jira")
 
     # Gate 1 (config): write-back is off by default (plan D7).
     if not jira_section.get("enable_write"):
@@ -252,7 +252,7 @@ def check_fn() -> bool:
             return False
         home = config_mod.resolve_hermes_home()
         cfg = config_mod.load_unified_config(home)
-        jira_section = config_mod._section(cfg, "jira")
+        jira_section = config_mod.section(cfg, "jira")
         return bool(jira_section.get("enable_write"))
     except Exception:
         return False

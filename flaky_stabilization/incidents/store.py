@@ -522,19 +522,22 @@ class IncidentStore:
         # timestamp, matching the previous behaviour.
         predicate = "updated != '' AND length(updated) >= 10 AND updated < ?"
         with self._lock:
-            # Delete the FTS mirror rows first (via subquery, while the source
-            # rows still exist), then the incidents themselves.
-            if self.fts_available:
-                self._conn.execute(
-                    f"DELETE FROM incidents_fts WHERE key IN "
-                    f"(SELECT key FROM incidents WHERE {predicate})",
-                    (cutoff_date,),
+            # One transaction, like upsert/upsert_many: the mirror delete and the
+            # base delete must not be separable, or a failure between them leaves
+            # the FTS mirror pointing at rows that no longer exist.
+            with self._conn:
+                # Delete the FTS mirror rows first (via subquery, while the source
+                # rows still exist), then the incidents themselves.
+                if self.fts_available:
+                    self._conn.execute(
+                        f"DELETE FROM incidents_fts WHERE key IN "
+                        f"(SELECT key FROM incidents WHERE {predicate})",
+                        (cutoff_date,),
+                    )
+                cur = self._conn.execute(
+                    f"DELETE FROM incidents WHERE {predicate}", (cutoff_date,)
                 )
-            cur = self._conn.execute(
-                f"DELETE FROM incidents WHERE {predicate}", (cutoff_date,)
-            )
-            removed = cur.rowcount or 0
-            self._conn.commit()
+                removed = cur.rowcount or 0
             if removed:
                 self._count_cache = None
         return removed
@@ -553,15 +556,17 @@ class IncidentStore:
             to_delete = [k for k in existing if k not in seen]
             if not to_delete:
                 return 0
-            if self.fts_available:
-                self._conn.executemany(
-                    self._FTS_DELETE_SQL,
-                    [self._fts_delete_params(k) for k in to_delete])
-            for chunk in _chunked(to_delete):
-                placeholders = ",".join("?" * len(chunk))
-                self._conn.execute(
-                    f"DELETE FROM incidents WHERE key IN ({placeholders})", chunk)
-            self._conn.commit()
+            # One transaction (see prune_older_than): a failure partway through
+            # must not leave the mirror and the base table disagreeing.
+            with self._conn:
+                if self.fts_available:
+                    self._conn.executemany(
+                        self._FTS_DELETE_SQL,
+                        [self._fts_delete_params(k) for k in to_delete])
+                for chunk in _chunked(to_delete):
+                    placeholders = ",".join("?" * len(chunk))
+                    self._conn.execute(
+                        f"DELETE FROM incidents WHERE key IN ({placeholders})", chunk)
             self._count_cache = None
         return len(to_delete)
 

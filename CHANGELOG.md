@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The flaky-detection half becomes usable without Hermes Agent, as a standalone
 CLI and a GitHub Action. Healing, triage, and bug-report structuring stay
-Hermes-only: they need a model and the host's approval pipeline. No schema
-change, no new runtime dependency, and no change to the plugin surface.
+Hermes-only: they need a model and the host's approval pipeline. No new runtime
+dependency and no change to the plugin surface.
+
+**`state.db` moves to schema v2** (a rebuild of the triage FTS mirror; see
+Fixed). The migration is automatic and touches only derived data, but a v2
+database is refused by 0.2.1 and earlier — upgrade every process that opens the
+same `state.db`, and do not point an older plugin at an upgraded one.
 
 ### Added
 
@@ -51,6 +56,67 @@ change, no new runtime dependency, and no change to the plugin surface.
   `FLAKY_STAB_` env prefix. Because the new variable outranks the throwaway
   `HERMES_HOME` the suite sets, a stray one in a developer's shell would have
   pointed every test at their real profile.
+- Supported Python widens to include 3.14 (`requires-python = ">=3.11,<3.15"`),
+  with a matching `tests` matrix leg so the claim is actually gated by CI.
+- The unified config's `detective` section documents `test_history_db_path` and
+  `source_schema_version`, the two keys the stage honours but only its own
+  `DEFAULT_CONFIG` listed. Resolution is unchanged; they are now visible in the
+  resolved view instead of passing through as unknown keys.
+
+### Fixed
+
+- **A crashing stage no longer loses the `pipeline_runs` ledger row.** Three
+  paths in `stabilize_test_failure` could raise straight out of `Pipeline.run`
+  — a non-numeric burn-in count (`ValueError`), a non-dict healer `report`
+  (`AttributeError`), and any exception from the PII gate. The tool contract
+  held (the handler returns an error envelope), but no row was written for
+  exactly the runs an operator queries the ledger for. A raising PII gate now
+  fails **closed**, like the gate-unavailable branch beside it.
+- **Spooled CI-log evidence is removed even when a run crashes.** The cleanup
+  sat at the tail of `run()`, so the crashes above skipped it and left the
+  fetched log on disk (0600, under the 0700 data dir) until the 24-hour sweep
+  reaped it. It is now in a `finally`.
+- **The heal → history feedback loop actually feeds back.** A stable burn-in
+  writes one synthetic green run per repeat, but all of them shared a
+  `source_file` and timestamp — and the detective dedups logical runs on
+  exactly that pair, so a 10-run burn-in contributed **one** green run to the
+  next sweep. Each repeat now gets its own identity. The repeat count is also
+  parsed defensively and bounded (it decides how many rows one heal writes into
+  the public `history.db`).
+- **The triage FTS mirror delete is index-backed.** `triage_patterns_fts`
+  declared `signature` `UNINDEXED`, so removing one mirror row was a full
+  virtual-table scan — run twice per learned pattern plus once per pruned row,
+  on the synchronous triage path, growing linearly with the mirror. Schema v2
+  rebuilds the mirror with `signature` indexed and the delete targets a rowid
+  (200 deletes against a 20k-row mirror: 0.332 s → 0.002 s). The fuzzy lookup's
+  MATCH is now column-scoped to `sample`, so newly-indexed hex digests cannot
+  enter its token space. `project` stays `UNINDEXED` — it is only ever an
+  equality filter.
+- **`shutdown()` no longer permanently disables incident context injection.**
+  `PrefetchCache.shutdown()` set a `_closed` flag nothing cleared, so a
+  shutdown → initialize cycle (session end → session start in a long-lived
+  gateway) left every `prefetch()` returning `""` — silently, with no error and
+  no log. `PrefetchCache.reopen()` revives it.
+- **An empty `FLAKY_HEALER_SUBPROC_ISOLATE_NET` no longer disables subprocess
+  network isolation.** It tested `is not None`, so a bare `export VAR=` in a CI
+  wrapper turned a security-relevant default off. Empty now means "unset",
+  matching every other env reader in the plugin (`allow_subprocess_pr`,
+  `safehttp._allow_private`, `config._apply_env_overrides`).
+  `FLAKY_HEALER_RUN_CONCURRENCY` is aligned for the same reason.
+- `/stabilize` classifies its first token with `logfetch.is_remote` instead of
+  `startswith("http")`, so a bare test id such as `httpclient_timeout` is no
+  longer read as a log URL.
+- `history.db_path_override` equal to the Hermes home is rejected with a clear
+  message instead of passing containment and failing later with sqlite3's
+  opaque "unable to open database file".
+- `IncidentStore.prune_older_than` and `delete_keys_not_in` run their FTS-mirror
+  and base-table deletes in one transaction, so a failure between them cannot
+  leave the mirror pointing at rows that no longer exist.
+- The Jira transport no longer re-wraps its own response-size-cap error as
+  `request failed: …`, which buried the message and dropped `.status`.
+- `logfetch.read_local` closes the raw fd if `os.fdopen` itself raises, and the
+  subprocess sandbox raises `SandboxError` instead of asserting on a missing
+  stdout pipe (`assert` is stripped under `python -O`).
 
 ## [0.2.1] — 2026-07-30
 

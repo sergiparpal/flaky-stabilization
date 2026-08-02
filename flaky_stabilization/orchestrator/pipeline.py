@@ -38,6 +38,7 @@ import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +65,31 @@ OUTCOME_TICKET_READY = "ticket_ready"
 OUTCOME_NEEDS_ATTENTION = "needs_attention"
 
 _INCIDENT_HINT_LIMIT = 3
+
+# A burn-in is a handful of repeats (healer.burnin defaults to 5:10), but the
+# count arrives inside an injected stage's envelope and decides how many rows one
+# heal writes into the PUBLIC history.db — so it is bounded here.
+_MAX_BURNIN_FEEDBACK_RUNS = 50
+# Bound on the test id embedded in a synthetic run's source_file (a DB text
+# column, not a path — this is hygiene, not a traversal guard).
+_MAX_SYNTHETIC_ID_CHARS = 120
+
+
+def _burnin_repeats(burnin: Any) -> int:
+    """How many synthetic green runs one stable burn-in is worth (>=1, bounded).
+
+    ``passed``/``runs`` come from a stage envelope, so a non-numeric or absurd
+    value must degrade rather than raise out of ``run()`` (losing the ledger row)
+    or loop tens of thousands of times against ``history.db``. ``passed`` is
+    preferred — what actually went green — with ``runs`` as the fallback.
+    """
+    if not isinstance(burnin, dict):
+        return 1
+    try:
+        repeats = int(burnin.get("passed") or burnin.get("runs") or 0)
+    except (TypeError, ValueError):
+        return 1
+    return max(1, min(repeats, _MAX_BURNIN_FEEDBACK_RUNS))
 
 
 def _as_dict(raw: Any) -> Any:
@@ -240,10 +266,20 @@ class Pipeline:
     def run(self, args: dict[str, Any]) -> dict[str, Any]:
         started = time.monotonic()
         ctx = RunContext(args=args if isinstance(args, dict) else {})
+        log_path = self._evidence(ctx)
+        try:
+            return self._run_from_evidence(ctx, log_path, started)
+        finally:
+            # In the `finally`, not at the tail of the run: a spooled CI log can
+            # carry captured output and secrets, and a stage crashing out of the
+            # run used to skip the cleanup entirely — leaving the file on disk
+            # until _spool_log's 24h sweep happened to reap it.
+            self._cleanup_spooled_evidence(ctx, log_path)
 
+    def _run_from_evidence(self, ctx: RunContext, log_path: str | None,
+                           started: float) -> dict[str, Any]:
         heal_categories = self._pipeline_cfg.get("heal_categories") or ["flaky", "timeout"]
 
-        log_path = self._evidence(ctx)
         test_id = ctx.arg("test_id")
         self._history(test_id, ctx)
         category = self._triage(ctx, log_path, test_id)
@@ -278,7 +314,6 @@ class Pipeline:
             "notes": ctx.notes,
         }
         self._ledger(ctx, category, branch, outcome, time.monotonic() - started)
-        self._cleanup_spooled_evidence(ctx, log_path)
         return envelope
 
     # -- stage steps --------------------------------------------------------
@@ -311,10 +346,9 @@ class Pipeline:
                     "bytes_filtered": data.get("bytes_filtered"),
                 }
                 return str(path)
-            ctx.results["evidence"] = {
-                "error": (data or {}).get("error", "fetch_ci_logs returned no log")
-                if isinstance(data, dict) else "fetch_ci_logs returned no log",
-            }
+            fallback = "fetch_ci_logs returned no log"
+            error = data.get("error", fallback) if isinstance(data, dict) else fallback
+            ctx.results["evidence"] = {"error": error}
             return None
         ctx.skip("evidence", reason="no log given (and no build_id+repo+token)")
         return None
@@ -489,7 +523,12 @@ class Pipeline:
         ctx.results["healer"] = data
         if not isinstance(data, dict):
             return OUTCOME_NEEDS_ATTENTION
-        report = data.get("report") or {}
+        # The healer's envelope is injected (and, in production, JSON a third
+        # party produced): a non-dict `report` must read as "no stable heal",
+        # not raise AttributeError out of run() and lose the ledger row.
+        report = data.get("report")
+        if not isinstance(report, dict):
+            report = {}
         if report.get("stable"):
             self._feed_back_burnin(test_id, report, ctx)
             if data.get("pr"):
@@ -504,29 +543,35 @@ class Pipeline:
         recovery."""
         if self.stages.ingest_synthetic is None:
             return
-        # The healer's real envelope is report["burnin"] (HealReport.to_dict)
-        # with the sandbox aggregate's "runs"/"passed" keys. Only stable heals
-        # reach this point, where passed == runs; prefer "passed" (what
-        # actually went green) with "runs" as the robustness fallback.
-        burnin = report.get("burnin") or {}
-        repeats = int(burnin.get("passed") or burnin.get("runs") or 0)
-        classname, name = None, test_id
-        if "::" in test_id:
-            classname, name = test_id.rsplit("::", 1)
-        case = {
-            "classname": classname,
-            "name": name,
-            "file_path": report.get("test_id") or test_id,
-            "status": "passed",
-        }
+        # Everything below is inside the try: `repeats` is parsed from a stage
+        # envelope, and a raise here would escape run() and lose the ledger row.
         try:
-            run_ids = [
-                self.stages.ingest_synthetic(cases=[case])
-                for _ in range(max(1, repeats))
-            ]
+            repeats = _burnin_repeats(report.get("burnin"))
+            classname, name = None, test_id
+            if "::" in test_id:
+                classname, name = test_id.rsplit("::", 1)
+            case = {
+                "classname": classname,
+                "name": name,
+                "file_path": report.get("test_id") or test_id,
+                "status": "passed",
+            }
+            # Each repeat needs its OWN source_file. The detective dedups logical
+            # runs on (source_file, effective timestamp), and ingest_synthetic_run
+            # derives both from the suite name and the current second — so N runs
+            # written by one burn-in collapsed to ONE in every detection sweep,
+            # silently reducing this whole feedback loop to a single green run.
+            stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
+            slug = test_id[:_MAX_SYNTHETIC_ID_CHARS]
+            for index in range(repeats):
+                self.stages.ingest_synthetic(
+                    cases=[case],
+                    run_timestamp=stamp,
+                    source_file=f"synthetic://flaky-healer-burnin/{slug}/{stamp}/{index}",
+                )
             ctx.note(
                 f"burn-in outcome fed back into test history "
-                f"({len(run_ids)} synthetic green run(s))"
+                f"({repeats} synthetic green run(s))"
             )
         except Exception as exc:
             ctx.note(f"burn-in feedback failed ({type(exc).__name__})")
@@ -592,8 +637,21 @@ class Pipeline:
             ctx.note("PII gate required but unavailable — failing closed")
             return False
 
-        gate_result = self.stages.gate(evidence_paths)
-        gate_dict = gate_result.to_dict() if hasattr(gate_result, "to_dict") else gate_result
+        try:
+            gate_result = self.stages.gate(evidence_paths)
+            gate_dict = gate_result.to_dict() if hasattr(gate_result, "to_dict") else gate_result
+            if not isinstance(gate_dict, dict):
+                raise TypeError(f"gate returned {type(gate_dict).__name__}, expected a mapping")
+        except Exception as exc:
+            # Fail CLOSED, like the gate-unavailable branch above: a gate that
+            # raised has not cleared anything. Guarded because an unhandled raise
+            # here would escape run() and lose the ledger row for exactly the
+            # evidence that could not be cleared.
+            ctx.fail("pii", "pii gate", exc)
+            ctx.skip("tracker", reason="pii_gate_errored — nothing sent")
+            ctx.note("PII gate raised — failing closed; nothing was sent")
+            logger.warning("pipeline: PII gate raised; failing closed", exc_info=True)
+            return False
         ctx.results["pii"] = gate_dict
         if not gate_dict.get("ok"):
             ctx.skip("tracker", reason="pii_gate_failed — nothing sent")
@@ -854,7 +912,10 @@ def make_command(ctx, incidents_service):
                     "[repo_dir=…] [mode=suggest|pr] [project=…]")
         args: dict[str, Any] = {}
         head = tokens[0]
-        if head.startswith("http"):
+        # logfetch.is_remote, not startswith("http"): the naive form reads a bare
+        # test id such as `httpclient_timeout` as a URL (see _is_remote_log, which
+        # replaced the same check on the other side of this module).
+        if Pipeline._is_remote_log(head):
             args["log_url_or_path"] = head
         elif "::" in head and not os.path.exists(head):
             # The documented `file_path::name` test-id form: a '::'-containing

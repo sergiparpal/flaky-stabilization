@@ -24,7 +24,7 @@ from .. import paths
 
 STATE_DB_NAME = "state.db"
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _V1_DDL = (
     # -- detective (from verdicts.db) -----------------------------------------
@@ -106,8 +106,43 @@ def _migrate_to_v1(conn: sqlite3.Connection) -> None:
             pass
 
 
+# v2 shape of the triage mirror: `signature` is INDEXED (v1 had it UNINDEXED).
+_V2_TRIAGE_FTS = """CREATE VIRTUAL TABLE IF NOT EXISTS triage_patterns_fts USING fts5(
+        sample, project UNINDEXED, signature)"""
+
+
+def _migrate_to_v2(conn: sqlite3.Connection) -> None:
+    """Index ``signature`` in the triage FTS mirror.
+
+    v1 declared BOTH ``project`` and ``signature`` UNINDEXED, which left no way
+    to locate a single mirror row except a full virtual-table scan — and
+    ``PatternStore`` deletes one row by (project, signature) twice per learned
+    pattern plus once per pruned row, on the synchronous triage path. Indexing
+    ``signature`` (a hex digest — exactly one token) turns that into a rowid
+    lookup. A MATCH against an UNINDEXED column silently matches nothing, so
+    this is what makes the targeted delete possible at all.
+
+    ``project`` deliberately stays UNINDEXED: it is only ever an equality
+    filter, never a search term, and indexing it would put project names into
+    the fuzzy lookup's token space.
+
+    The mirror is derived data — fully rebuildable from ``triage_patterns`` —
+    so the step is a drop + rebuild, which is also what makes it idempotent.
+    """
+    try:
+        conn.execute("DROP TABLE IF EXISTS triage_patterns_fts")
+        conn.execute(_V2_TRIAGE_FTS)
+        conn.execute(
+            "INSERT INTO triage_patterns_fts (sample, project, signature) "
+            "SELECT sample, project, signature FROM triage_patterns"
+        )
+    except sqlite3.OperationalError:
+        # FTS5 not compiled in — LIKE fallbacks take over at query time.
+        pass
+
+
 # Ordered ladder: (target_version, step). Each step must be idempotent.
-_MIGRATIONS: tuple[tuple[int, object], ...] = ((1, _migrate_to_v1),)
+_MIGRATIONS: tuple[tuple[int, object], ...] = ((1, _migrate_to_v1), (2, _migrate_to_v2))
 
 
 def state_db_path(data_dir: Path | None = None) -> Path:

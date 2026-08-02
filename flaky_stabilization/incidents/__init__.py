@@ -254,6 +254,10 @@ class IncidentsService:
         # db_path is computed *after* _reload_config set the new config/home, and
         # _reopen_store closes the old store before opening the new one.
         self._reopen_store(self._effective_db_path())
+        # Revive the cache if a prior shutdown() closed it: without this a
+        # shutdown → initialize cycle left context injection permanently (and
+        # silently) empty. A no-op on the first init and whenever it is open.
+        self._prefetch.reopen()
 
         self._client = self._build_client()
         self._sync = SyncScheduler(
