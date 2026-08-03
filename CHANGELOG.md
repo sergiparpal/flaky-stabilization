@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- README's Storage section states the current `state.db` schema version and
+  spells out the v1 → v2 upgrade: it is automatic and rewrites only derived
+  data, but the upgraded file is then a hard error for 0.2.1 and earlier, and
+  there is no downgrade. The 0.3.0 notes and this changelog carried that
+  warning; the README, which is what most people actually read, did not.
+
 ## [0.3.0] — 2026-08-03
 
 The flaky-detection half becomes usable without Hermes Agent, as a standalone
