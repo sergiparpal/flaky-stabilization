@@ -94,11 +94,19 @@ approval-escalated on every call.
 * `<hermes_home>/flaky-stabilization/state.db` — all private state: verdicts,
   scan runs, triage patterns (+FTS), healer runs/recipes/audit, incidents
   (+FTS), links, meta, pipeline runs. Owner-only (`0700` dir / `0600` file),
-  WAL, versioned migration ladder.
+  WAL, versioned migration ladder (**schema v2** since 0.3.0).
 
 Both databases refuse a schema version newer than this installed plugin
 supports. Upgrade the plugin before opening a newer database; do not point an
 older build at it.
+
+**Upgrading to 0.3.0 moves `state.db` from v1 to v2.** The migration runs
+automatically on first open and rewrites only derived data (the triage FTS
+mirror), but the upgraded database is then refused by 0.2.1 and earlier — the
+refusal is a hard error, not a warning. If more than one thing opens the same
+`state.db` — a Hermes install and a `flaky-stab` cron job, say — upgrade them
+together. There is no downgrade path; restore a copy of the file if you need to
+go back.
 
 `<hermes_home>` is resolved by one shared resolver, in order: `$FLAKY_STAB_HOME`
 (the standalone CLI's explicit override — see below), the host's own helpers,
