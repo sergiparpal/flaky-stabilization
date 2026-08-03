@@ -38,7 +38,10 @@ same `state.db`, and do not point an older plugin at an upgraded one.
   `is-flaky`, with `is-flaky` / `result-json` / `flaky-count` outputs and a
   `state-dir` input that becomes `FLAKY_STAB_HOME`. Two copy-paste consumer
   workflows are in `docs/examples/`; they live there rather than in
-  `.github/workflows/` so they cannot run against this repository.
+  `.github/workflows/` so they cannot run against this repository. Until this
+  entry ships in a tag, the docs pin the action by commit SHA — `v0.2.1`
+  predates both `action.yml` and the `flaky-stab` console script, so it cannot
+  serve either.
 - `action-smoke`, a CI job running the composite action end to end against a
   JUnit fixture, added to `ci-complete`'s `needs:` list.
 
@@ -58,10 +61,18 @@ same `state.db`, and do not point an older plugin at an upgraded one.
   pointed every test at their real profile.
 - Supported Python widens to include 3.14 (`requires-python = ">=3.11,<3.15"`),
   with a matching `tests` matrix leg so the claim is actually gated by CI.
-- The unified config's `detective` section documents `test_history_db_path` and
-  `source_schema_version`, the two keys the stage honours but only its own
-  `DEFAULT_CONFIG` listed. Resolution is unchanged; they are now visible in the
-  resolved view instead of passing through as unknown keys.
+- The unified config's `detective` section documents `test_history_db_path`,
+  which the stage honours but only its own `DEFAULT_CONFIG` listed. Resolution
+  is unchanged; it is now visible in the resolved view instead of passing
+  through as an unknown key.
+- `detective.source_schema_version` is **removed from both defaults dicts** — it
+  was never configuration. Nothing read it: the version recorded per scan comes
+  from the database, and the guard that *refuses* a `history.db` newer than this
+  build reads `detective.domain` directly. Listing it as a key invited someone
+  to wire it up, which would have turned a refusal into an operator-settable
+  ceiling. `flaky-stab status` now reports it as `expects_history_schema`,
+  outside the resolved config. A value left in an existing `config.json` is an
+  inert passthrough — nothing to migrate.
 
 ### Fixed
 

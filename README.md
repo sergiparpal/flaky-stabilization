@@ -118,13 +118,26 @@ Defaults in parentheses:
 | Section | Keys |
 |---|---|
 | `history` | `default_lookback_days` (30), `max_stack_trace_chars` (500), `db_path_override` (null — validated to stay inside the Hermes home) |
-| `detective` | `window_days` (14), `min_fails` (3), `include_errors` (true), `schedule` (`0 9 * * *`), `deliver` (`local`), `report_scope` (`changes-only`) |
+| `detective` | `window_days` (14), `min_fails` (3), `include_errors` (true), `schedule` (`0 9 * * *`), `deliver` (`local`), `report_scope` (`changes-only`), `test_history_db_path` (null → `<hermes_home>/test-history/history.db`) |
 | `triage` | `enable_enrichment` (true), `log_roots` (null), `token_hosts` (null), `allow_private` (**false**) |
 | `healer` | `burnin` (`5:10`), `sandbox` (`auto`), `docker_image` (null → the pinned digest), `git_tool` (`terminal`), `pr_tool` (`create_pull_request`), `base_branch` (`main`), `allow_subprocess_pr` (**false**), `github_api` (`""` → `https://api.github.com`), `subproc_pass_env` (null; list or comma string), `subproc_isolate_net` (**true**), `run_concurrency` (1) |
 | `pii` | `default_max_files` (2000) |
 | `jira` | `base_url` (`""`), `email` (`""`), `auth_mode` (`api_token`), `jql` (`project = INC ORDER BY updated DESC`), `root_cause_field` (null), `page_size` (50), `max_pages` (20), `retention_days` (0), `sync_min_interval` (60.0), `enable_write` (**false**), `project_key` (`INC`), `issue_type` (`Bug`), `strict_redaction` (false) |
 | `incidents` | `context_injection` (true), `prefetch_limit` (3), `prefetch_timeout` (1.5) |
 | `pipeline` | `default_heal_mode` (`suggest`), `heal_categories` (`[flaky, timeout]`), `require_pii_gate` (**true** — never set false in production) |
+
+`detective.test_history_db_path` points the detector at a `history.db` that is
+not under the resolved home — set it when test-history lives somewhere
+non-default, since the detector never shells out to discover that location.
+`~` and `$VAR` are expanded, and `flaky-stab status` prints both the value and
+the database path it resolved to.
+
+**The test-history schema version this build accepts is not configurable.**
+`flaky-stab status` reports it on the `history.db` line (`expects v1`) next to
+the version actually on disk, not among the resolved config, because it is a
+property of the build rather than a setting: a scan *refuses* a `history.db`
+newer than that number, and a settable copy would let `config.json` switch that
+refusal off. Upgrade the plugin instead.
 
 Five keys widen a security boundary and ship at the safe value:
 `pipeline.require_pii_gate` (the gate itself), `jira.enable_write` (tracker
@@ -283,11 +296,18 @@ exits `0` whatever the verdict (`1` for an unreadable database, `2` for a bad
 commands:
 
 ```yaml
-- uses: sergiparpal/flaky-stabilization@v0.2.1
+- uses: sergiparpal/flaky-stabilization@6acc7315da3a1f4ef657f5f82eeee6c840dd1772
   with:
     command: is-flaky
     test-id: pkg.Mod::test_login
 ```
+
+**The action is not in a tagged release yet.** `action.yml` and the
+`flaky-stab` console script landed after `v0.2.1`, so `@v0.2.1` resolves to a
+tree that contains neither — pin the commit SHA above (or a later `main`
+commit) until the next tag is cut. A SHA is the pin this repository uses for
+its own `uses:` lines anyway: a tag can be repointed by its owner, a commit
+cannot.
 
 Inputs: `command` (`ingest` | `scan` | `is-flaky`), `junit-path`, `test-id`,
 `state-dir` (default `.flaky`, exported as `FLAKY_STAB_HOME`), `python-version`,
@@ -331,7 +351,7 @@ HERMES_REPO=~/hermes-agent bash scripts/run_tests.sh   # + real-loader integrati
 ruff check .
 ```
 
-Requires Python ≥ 3.11, < 3.14. The core runtime is standard library only.
+Requires Python ≥ 3.11, < 3.15. The core runtime is standard library only.
 To scan image evidence, install the optional package extra in the Hermes
 environment and make the system `tesseract` executable available on `PATH`:
 

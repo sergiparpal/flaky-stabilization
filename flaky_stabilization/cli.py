@@ -250,11 +250,15 @@ def _history_db_lines() -> list[str]:
     path containing ``#``, ``?`` or ``%``.
     """
     from . import paths
+    from .detective import domain as detective_domain
     from .history import storage as history_storage
 
+    # Reported, never resolved from config: a scan refuses a history.db newer
+    # than this, so a settable copy would let config.json disable that refusal.
+    expected = detective_domain.EXPECTED_SOURCE_SCHEMA_VERSION
     history_db = history_storage.default_db_path()
     if not history_db.exists():
-        return [f"history.db: {history_db} (not created yet)"]
+        return [f"history.db: {history_db} (not created yet, expects v{expected})"]
     try:
         with closing(sqlite3.connect(paths.read_only_uri(history_db), uri=True)) as conn:
             runs = conn.execute("SELECT COUNT(*) FROM test_runs").fetchone()[0]
@@ -264,7 +268,7 @@ def _history_db_lines() -> list[str]:
     except sqlite3.Error as exc:
         return [f"history.db: {history_db} (unreadable: {exc})"]
     return [f"history.db: {history_db} (schema v{history_schema_version}, "
-            f"runs={runs}, cases={cases})"]
+            f"expects v{expected}, runs={runs}, cases={cases})"]
 
 
 def _config_lines() -> list[str]:
