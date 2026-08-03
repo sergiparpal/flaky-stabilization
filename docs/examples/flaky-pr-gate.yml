@@ -52,10 +52,11 @@ jobs:
           FLAKY_STAB_HOME: ${{ github.workspace }}/.flaky
         run: |
           set -euo pipefail
-          # Pinned to a commit, not a tag: v0.2.1 predates the `flaky-stab`
-          # console script this loop calls, and a tag can be repointed.
+          # v0.3.0 is the first release carrying the `flaky-stab` console
+          # script this loop calls. Swap the tag for its commit SHA if you
+          # want a pin the upstream owner cannot repoint.
           python -m pip install --disable-pip-version-check --quiet \
-            "git+https://github.com/sergiparpal/flaky-stabilization@6acc7315da3a1f4ef657f5f82eeee6c840dd1772"
+            "git+https://github.com/sergiparpal/flaky-stabilization@v0.3.0"
           # One CLI call per failed test. The composite action handles a single
           # test-id; a loop wants the CLI directly.
           while IFS= read -r test_id; do

@@ -87,12 +87,12 @@ gating anything. The ruleset requires that one stable name rather than the indiv
 on purpose: a dropped Python version would otherwise become a required check that never reports
 again and would block every merge permanently.
 
-The same pinning applies to *this* repository's action where the docs tell consumers to use it —
-`README.md` and both files in `docs/examples/` reference `sergiparpal/flaky-stabilization@<sha>`,
-because `action.yml` and the `flaky-stab` console script landed after `v0.2.1` and no tag contains
-them yet. **When the next version is tagged, repoint those three files at the tag**; a doc that
-tells a consumer to use a ref which cannot resolve `action.yml` is a broken quickstart, and nothing
-in CI catches it (`action-smoke` runs the action from the local checkout, by design).
+Three files tell consumers which ref of *this* repository's action to use: `README.md` and both
+files in `docs/examples/`. They currently say `@v0.3.0`, the first release containing `action.yml`.
+**Every release must repoint them at the new tag** — a doc that names a ref which cannot resolve
+`action.yml` is a broken quickstart, and nothing in CI catches it (`action-smoke` runs the action
+from the local checkout, by design). That is exactly how `@v0.2.1` survived in the docs after the
+action landed in the commit *after* that tag.
 
 GitHub Actions are pinned to **full commit SHAs** with a trailing `# vX.Y.Z` comment, never to tags
 — a tag can be repointed by its upstream owner, a commit SHA cannot. Keep new `uses:` lines pinned
