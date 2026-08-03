@@ -271,6 +271,25 @@ def test_future_schema_is_refused(tmp_path, caplog):
         _read(db)
 
 
+def test_future_schema_refusal_is_not_config_overridable(tmp_path, profile_env):
+    """config.json cannot raise the version this build will accept.
+
+    The refusal above is what stops an older build reading a newer history.db.
+    ``source_schema_version`` is deliberately not a config key; the guard reads
+    ``domain.EXPECTED_SOURCE_SCHEMA_VERSION``. A user who writes the key anyway
+    gets an inert passthrough, not a raised ceiling.
+    """
+    from flaky_stabilization import config as unified_config
+
+    unified_config.write_config({"detective": {"source_schema_version": 999}})
+    db = build_test_history_db(tmp_path / "h.db", [
+        {"source_file": "a.xml", "run_timestamp": "2026-05-20T09:00:00",
+         "cases": [{"name": "t", "status": "failed"}]},
+    ], schema_version=999)
+    with pytest.raises(query.TestHistoryUnavailable, match="newer than supported"):
+        _read(db)
+
+
 # ---------------------------------------------------------------------------
 # Read-only enforcement / error handling
 # ---------------------------------------------------------------------------

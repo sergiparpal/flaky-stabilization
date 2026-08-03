@@ -108,3 +108,50 @@ def test_float_accepts_int(profile_env):
     cfg = config.load_config()
     assert cfg["jira"]["sync_min_interval"] == 30.0
     assert isinstance(cfg["jira"]["sync_min_interval"], float)
+
+
+def test_detective_defaults_match_the_stage_that_owns_them():
+    """The unified `detective` section is a second copy of the stage's own defaults.
+
+    ``DEFAULTS["detective"]`` exists so the unified file documents every key the
+    section accepts, but the stage resolves against
+    ``detective.config.DEFAULT_CONFIG``, which derives its values from
+    ``detective.domain``. Two literals for one default: bump a domain constant
+    and the unified resolved view keeps reporting the stale number, silently.
+    ``config.py`` cannot import the stage to deduplicate them — that inverts the
+    enforced ``common <- stages <- orchestrator`` direction — so they are pinned
+    here instead.
+    """
+    from flaky_stabilization.detective import config as detective_config
+
+    assert config.DEFAULTS["detective"] == detective_config.DEFAULT_CONFIG
+
+
+def test_expected_source_schema_version_is_not_configurable():
+    """The test-history schema version this build expects must stay out of config.
+
+    ``query._warn_on_schema_mismatch`` *raises* ``TestHistoryUnavailable`` when
+    the database is newer than ``domain.EXPECTED_SOURCE_SCHEMA_VERSION``. That
+    refusal is the guarantee that an older build cannot read a newer
+    ``history.db``; a settable copy of the number would let ``config.json`` turn
+    it off. It is reported by ``flaky-stab status``, never resolved from config.
+    """
+    from flaky_stabilization.detective import config as detective_config
+
+    assert "source_schema_version" not in config.DEFAULTS["detective"]
+    assert "source_schema_version" not in detective_config.DEFAULT_CONFIG
+
+
+def test_hand_added_schema_version_is_inert_passthrough(profile_env):
+    """A hand-added ``source_schema_version`` survives but is coerced by nothing.
+
+    Unknown keys inside a known section pass through untouched (forward
+    compatibility), so an operator's stale value still echoes in the resolved
+    view — the point is that nothing consults it. That the *refusal* ignores it
+    is pinned behaviourally in
+    ``tests/detective/test_query.py::test_future_schema_refusal_is_not_config_overridable``.
+    """
+    config.write_config({"detective": {"source_schema_version": 99}})
+    cfg = config.load_config()
+    assert cfg["detective"]["source_schema_version"] == 99          # passthrough
+    assert "source_schema_version" not in config.DEFAULTS["detective"]  # not a key

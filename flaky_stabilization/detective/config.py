@@ -33,7 +33,11 @@ DEFAULT_CONFIG: dict = {
     "report_scope": domain.DEFAULT_REPORT_SCOPE,
     # null → auto-resolve to <hermes_home>/test-history/history.db.
     "test_history_db_path": None,
-    "source_schema_version": domain.EXPECTED_SOURCE_SCHEMA_VERSION,
+    # NOTE: the expected test-history schema version is not configuration and
+    # must not be added here. ``query._warn_on_schema_mismatch`` raises on a
+    # database newer than ``domain.EXPECTED_SOURCE_SCHEMA_VERSION``, so a
+    # settable copy would let config.json disable that refusal. ``status``
+    # reports the constant directly.
 }
 
 
@@ -84,7 +88,7 @@ def _coerce_config(cfg: dict) -> dict:
     typo, not a truthy value: it coerces to ``False``, never ``bool("false")``.
     """
     out = dict(cfg)
-    for key in ("window_days", "min_fails", "source_schema_version"):
+    for key in ("window_days", "min_fails"):
         out[key] = _as_int(out.get(key), DEFAULT_CONFIG[key])
     out["include_errors"] = _as_bool(out.get("include_errors"), DEFAULT_CONFIG["include_errors"])
     for key in ("deliver", "schedule", "report_scope"):

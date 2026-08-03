@@ -24,7 +24,7 @@ in `docs/`.
 
 ## Build, Test, and Development Commands
 
-Use Python 3.11–3.13.
+Use Python 3.11–3.14.
 
 ```bash
 python3 -m pip install -e ".[dev]"       # editable install with pytest and Ruff
@@ -60,7 +60,7 @@ bash scripts/run_tests.sh -- --cov=flaky_stabilization --cov-fail-under=85
 ```
 
 GitHub Actions (`.github/workflows/ci.yml`) runs five jobs on push and pull request: `lint`
-(`ruff check .`), `tests` (the offline suite on Python 3.11/3.12/3.13 with the 85% coverage gate),
+(`ruff check .`), `tests` (the offline suite on Python 3.11/3.12/3.13/3.14 with the 85% coverage gate),
 `docker-tests` (the docker-marked sandbox tests against a real daemon —
 `bash scripts/run_tests.sh tests/healer -- -m docker -vv`, which needs the toy-app fixture
 dependencies installed), `build` (wheel build plus a smoke install that imports
@@ -86,6 +86,13 @@ operation, gated by CI rather than by a second pair of eyes.
 gating anything. The ruleset requires that one stable name rather than the individual matrix legs
 on purpose: a dropped Python version would otherwise become a required check that never reports
 again and would block every merge permanently.
+
+The same pinning applies to *this* repository's action where the docs tell consumers to use it —
+`README.md` and both files in `docs/examples/` reference `sergiparpal/flaky-stabilization@<sha>`,
+because `action.yml` and the `flaky-stab` console script landed after `v0.2.1` and no tag contains
+them yet. **When the next version is tagged, repoint those three files at the tag**; a doc that
+tells a consumer to use a ref which cannot resolve `action.yml` is a broken quickstart, and nothing
+in CI catches it (`action-smoke` runs the action from the local checkout, by design).
 
 GitHub Actions are pinned to **full commit SHAs** with a trailing `# vX.Y.Z` comment, never to tags
 — a tag can be repointed by its upstream owner, a commit SHA cannot. Keep new `uses:` lines pinned
