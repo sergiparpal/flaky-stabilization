@@ -304,17 +304,18 @@ exits `0` whatever the verdict (`1` for an unreadable database, `2` for a bad
 commands:
 
 ```yaml
-- uses: sergiparpal/flaky-stabilization@v0.3.0
+- uses: sergiparpal/flaky-stabilization@v0.3.1
   with:
     command: is-flaky
     test-id: pkg.Mod::test_login
 ```
 
-`v0.3.0` is the first release containing `action.yml` — earlier tags resolve to
-a tree without it (and without the `flaky-stab` console script), so `@v0.2.1`
-and below cannot serve this action at all. For an immutable pin, use the commit
-SHA the tag points at instead: a tag can be repointed by its owner, a commit
-cannot, which is why this repository pins third-party actions that way.
+`action.yml` first shipped in `v0.3.0`, so any tag from there on resolves it;
+earlier tags point at a tree without it (and without the `flaky-stab` console
+script), which is why `@v0.2.1` and below cannot serve this action at all. For
+an immutable pin, use the commit SHA the tag points at instead: a tag can be
+repointed by its owner, a commit cannot, which is why this repository pins
+third-party actions that way.
 
 Inputs: `command` (`ingest` | `scan` | `is-flaky`), `junit-path`, `test-id`,
 `state-dir` (default `.flaky`, exported as `FLAKY_STAB_HOME`), `python-version`,

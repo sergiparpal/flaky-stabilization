@@ -88,7 +88,7 @@ on purpose: a dropped Python version would otherwise become a required check tha
 again and would block every merge permanently.
 
 Three files tell consumers which ref of *this* repository's action to use: `README.md` and both
-files in `docs/examples/`. They currently say `@v0.3.0`, the first release containing `action.yml`.
+files in `docs/examples/`. They currently say `@v0.3.1`; `action.yml` first shipped in `v0.3.0`.
 **Every release must repoint them at the new tag** — a doc that names a ref which cannot resolve
 `action.yml` is a broken quickstart, and nothing in CI catches it (`action-smoke` runs the action
 from the local checkout, by design). That is exactly how `@v0.2.1` survived in the docs after the
