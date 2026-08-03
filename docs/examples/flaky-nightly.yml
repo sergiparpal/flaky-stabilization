@@ -50,7 +50,7 @@ jobs:
 
       - name: Ingest the JUnit results
         if: always()
-        uses: sergiparpal/flaky-stabilization@6acc7315da3a1f4ef657f5f82eeee6c840dd1772 # main @ 2026-08-02 (post-v0.2.1)
+        uses: sergiparpal/flaky-stabilization@v0.3.0
         with:
           command: ingest
           junit-path: reports/**/*.xml
@@ -58,7 +58,7 @@ jobs:
       - name: Scan for flaky tests
         id: scan
         if: always()
-        uses: sergiparpal/flaky-stabilization@6acc7315da3a1f4ef657f5f82eeee6c840dd1772 # main @ 2026-08-02 (post-v0.2.1)
+        uses: sergiparpal/flaky-stabilization@v0.3.0
         with:
           command: scan
 

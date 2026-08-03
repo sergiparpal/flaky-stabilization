@@ -296,18 +296,17 @@ exits `0` whatever the verdict (`1` for an unreadable database, `2` for a bad
 commands:
 
 ```yaml
-- uses: sergiparpal/flaky-stabilization@6acc7315da3a1f4ef657f5f82eeee6c840dd1772
+- uses: sergiparpal/flaky-stabilization@v0.3.0
   with:
     command: is-flaky
     test-id: pkg.Mod::test_login
 ```
 
-**The action is not in a tagged release yet.** `action.yml` and the
-`flaky-stab` console script landed after `v0.2.1`, so `@v0.2.1` resolves to a
-tree that contains neither — pin the commit SHA above (or a later `main`
-commit) until the next tag is cut. A SHA is the pin this repository uses for
-its own `uses:` lines anyway: a tag can be repointed by its owner, a commit
-cannot.
+`v0.3.0` is the first release containing `action.yml` — earlier tags resolve to
+a tree without it (and without the `flaky-stab` console script), so `@v0.2.1`
+and below cannot serve this action at all. For an immutable pin, use the commit
+SHA the tag points at instead: a tag can be repointed by its owner, a commit
+cannot, which is why this repository pins third-party actions that way.
 
 Inputs: `command` (`ingest` | `scan` | `is-flaky`), `junit-path`, `test-id`,
 `state-dir` (default `.flaky`, exported as `FLAKY_STAB_HOME`), `python-version`,
